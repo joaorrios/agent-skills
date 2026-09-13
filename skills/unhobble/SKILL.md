@@ -8,6 +8,8 @@ compatibility: Requires file access and a separate reviewer who has not taken pa
 
 # Unhobble
 
+To **unhobble** a model is to remove the constraints that prevent it from making full use of its capabilities. In this skill, that means revising instructions and context that unnecessarily limit its judgment or burden its attention, often inherited from workarounds for weaker models. Preserve the user's intent and the facts and constraints the model still needs to do the work.
+
 Rewrite the instructions to express what the user wants clearly and let the model use its judgment. Preserve the facts and constraints it needs to do the work.
 
 ## 1. Recover the current intent
