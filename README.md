@@ -5,6 +5,7 @@ Portable skills for coding agents.
 ## Skills
 
 - **approach-review** — challenges a proposed technical approach before implementation.
+- **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **unhobble** — updates and simplifies context engineering for new, stronger models.
 
@@ -26,6 +27,8 @@ skills/
     SKILL.md
     agents/
       reviewer.md
+  codex-image/
+    SKILL.md
   implementation-review/
     SKILL.md
     agents/
@@ -35,6 +38,8 @@ skills/
 ```
 
 The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary.
+
+`codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
 `unhobble` requires access to read and edit the target material and an independent reviewer.
 
