@@ -23,6 +23,10 @@ What follows from the table:
 
 The Desktop's data-dir behavior is observed, not documented; the config-dir behavior is documented.
 
+## Authentication boundary
+
+Every login completes through Anthropic's own flows: the Desktop sign-in, `/login`, `/logout`, or `claude setup-token`, used with the unmodified apps. A topology changes where configuration and history live, never how authentication works. Credentials stay where those flows put them: leave Keychain entries, `.credentials.json`, and the account fields of `.claude.json` untouched, and to retire a login, run `/logout` under its config dir. Subscription credentials serve only Claude Code and native Anthropic apps, never the Agent SDK or other tools. When a requested setup needs anything beyond this, say so and offer the nearest native alternative. The current rules are in the legal and compliance page listed in `references/sources.md`.
+
 ## Map the current topology
 
 Before changing anything, build the map from the machine itself:

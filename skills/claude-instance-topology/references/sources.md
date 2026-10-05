@@ -4,6 +4,7 @@ The official documentation is authoritative for documented behavior. Append `.md
 
 | Page | Settles |
 |---|---|
+| [Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance) | What subscription OAuth and API keys may be used for; that sign-in must complete through Anthropic's own flow. |
 | [Authentication](https://code.claude.com/docs/en/authentication) | Multiple accounts through `CLAUDE_CONFIG_DIR`; where credentials and the Keychain entry live; credential precedence; which credentials the Desktop ignores; Anthropic profiles. |
 | [Manage sessions](https://code.claude.com/docs/en/sessions) | Transcript location and project directory naming; `CLAUDE_CODE_PROJECT_DIR_NAME`; resume lookup order and the duplicate-copy rule. |
 | [Claude Desktop](https://code.claude.com/docs/en/desktop) | Desktop sign-in, synced skills and plugins, and resuming CLI sessions in the Desktop. |
