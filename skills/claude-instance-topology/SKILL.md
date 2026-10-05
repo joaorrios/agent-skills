@@ -42,7 +42,7 @@ When a requested setup needs anything outside the first three rows, say so and o
 Before changing anything, build the map from the machine itself:
 
 1. List every Claude launcher: `/Applications/Claude.app` plus any wrapper `.app` whose executable (`CFBundleExecutable` in its `Info.plist`) is a script that runs `open -n -a "Claude" …`. Read each for `--user-data-dir` and `CLAUDE_CONFIG_DIR`. With no `--user-data-dir`, the data dir is `~/Library/Application Support/Claude`.
-2. List CLI entry points: shell aliases and functions that set `CLAUDE_CONFIG_DIR`, and the variable in the login shell.
+2. List CLI entry points: shell aliases and functions that set `CLAUDE_CONFIG_DIR`, the variable in the login shell, and tools that launch Claude Code with their own per-agent environment, such as Paseo providers.
 3. For each config dir, check whether `projects/` is a real directory or a symlink, where it points, and its `cleanupPeriodDays` and `desktopSessionCleanupPeriodDays`.
 4. For a running Desktop instance, confirm the variable reached the process: inside one of its Code sessions, run `echo "$CLAUDE_CONFIG_DIR"`.
 
