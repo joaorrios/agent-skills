@@ -5,6 +5,7 @@ Portable skills for coding agents.
 ## Skills
 
 - **approach-review** — challenges a proposed technical approach before implementation.
+- **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share login, configuration, and session history.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **unhobble** — updates and simplifies context engineering for new, stronger models.
@@ -27,6 +28,10 @@ skills/
     SKILL.md
     agents/
       reviewer.md
+  claude-instance-topology/
+    SKILL.md
+    references/
+    scripts/
   codex-image/
     SKILL.md
   implementation-review/
@@ -42,6 +47,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
 `unhobble` requires access to read and edit the target material and an independent reviewer.
+
+`claude-instance-topology` targets macOS with Claude Desktop and/or the Claude Code CLI. Its icon script needs Python 3 and Pillow.
 
 ## Technical review independence
 
