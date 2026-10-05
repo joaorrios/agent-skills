@@ -25,7 +25,17 @@ The Desktop's data-dir behavior is observed, not documented; the config-dir beha
 
 ## Authentication boundary
 
-Every login completes through Anthropic's own flows: the Desktop sign-in, `/login`, `/logout`, or `claude setup-token`, used with the unmodified apps. A topology changes where configuration and history live, never how authentication works. Credentials stay where those flows put them: leave Keychain entries, `.credentials.json`, and the account fields of `.claude.json` untouched, and to retire a login, run `/logout` under its config dir. Subscription credentials serve only Claude Code and native Anthropic apps, never the Agent SDK or other tools. When a requested setup needs anything beyond this, say so and offer the nearest native alternative. The current rules are in the legal and compliance page listed in `references/sources.md`.
+A topology changes where configuration and history live, never how authentication works. **Switch the selector, not the secret**: to change accounts, choose a different config dir (or Desktop data dir), each holding the login it received through Anthropic's own flow.
+
+| Practice | Use |
+|---|---|
+| Desktop sign-in, `/login`, `/logout` in the unmodified apps | The way every login is made and retired. |
+| Choosing the config dir through an alias, function, launcher, or another tool's per-agent environment | The documented way to keep several accounts. |
+| `claude setup-token` with `CLAUDE_CODE_OAUTH_TOKEN`, in Claude Code itself | Documented for non-interactive environments. It cannot use claude.ai connectors or Remote Control. |
+| Reading, copying, moving, or restoring stored credentials (Keychain entries, `.credentials.json`, the account fields of `.claude.json`) | Outside the native flows. Leave them where the flows put them. |
+| Running OAuth or token exchanges outside the apps, or using subscription credentials in tools that handle the credential themselves | Prohibited by Anthropic's terms. |
+
+When a requested setup needs anything outside the first three rows, say so and offer the nearest native alternative. The current rules are in the legal and compliance page listed in `references/sources.md`.
 
 ## Map the current topology
 
