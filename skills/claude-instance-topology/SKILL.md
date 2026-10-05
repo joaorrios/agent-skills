@@ -1,6 +1,6 @@
 ---
 name: claude-instance-topology
-description: Maps and safely changes how Claude Desktop and Claude Code CLI instances on macOS share login, configuration, and session transcripts. Use when adding or modifying an instance (separate accounts, `CLAUDE_CONFIG_DIR`, `--user-data-dir`, per-instance skills/hooks), telling running instances apart by icon, recovering a session that shows "Session not found on disk" / "Sessão não encontrada no disco" or lost history after a config change or app update, or before editing any Claude Desktop session store.
+description: Maps and safely changes how Claude Desktop and Claude Code CLI instances on macOS share login, configuration, and session transcripts. Use when adding or modifying an instance (separate accounts, `CLAUDE_CONFIG_DIR`, `--user-data-dir`, per-instance skills/hooks), telling instances apart, cleaning up leftover launchers, aliases, and config or data dirs, recovering a session that shows "Session not found on disk" / "Sessão não encontrada no disco" or lost history after a config change or app update, or before editing any Claude Desktop session store.
 license: MIT
 compatibility: macOS with Claude Desktop and/or the Claude Code CLI. The icon script needs Python 3 and Pillow.
 ---
@@ -46,6 +46,8 @@ Choose the setting by what should differ:
 - **Separate configuration or CLI account** (different skills, plugins, hooks, `CLAUDE.md`): give the instance its own `CLAUDE_CONFIG_DIR`. Only a separate config dir changes the skill, plugin, and hook set for a whole instance; inside one instance, use project-level configuration instead.
 - **Separate configuration with shared history**: give it its own config dir, then **bridge** transcripts back by making its `projects/` a symlink to the old config dir's `projects/`. Session records store only `cliSessionId` and `cwd` and build the transcript path at load time, so the bridge resolves existing sessions. The bridge shares auto memory too.
 
+Name each instance once and reuse the name everywhere, so every artifact traces back to it: for `work`, the wrapper `Claude Work.app`, the data dir `~/Library/Application Support/Claude-Work`, the config dir `~/.claude-work`, and the CLI command `claude-work`, defined as a shell alias or function rather than a script in a `bin` directory.
+
 Guardrails for every change:
 
 - Quit the target Desktop instance before editing its launcher or session store; a running app overwrites store edits when it quits. Other instances can keep running, and one instance can edit another's store.
@@ -58,7 +60,11 @@ To move an existing Desktop instance onto its own config dir with history intact
 
 ## Telling instances apart
 
-Every running instance shows the same Dock tile. To recolor a wrapper's icon for Finder, Spotlight, and Launchpad, or to weigh a separate bundle for the running tile, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
+In the CLI, the command name is the instance (`claude` and `claude-work`), and `/status` shows the account and login method in use. On the Desktop, every running instance shows the same Dock tile. To recolor a wrapper's icon for Finder, Spotlight, and Launchpad, or to weigh a separate bundle for the running tile, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
+
+## Cleaning up
+
+When instances, launchers, aliases, scripts, or config and data dirs have piled up, or an instance is being retired, follow [`references/cleanup.md`](references/cleanup.md).
 
 ## Recovering a session
 
