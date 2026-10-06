@@ -50,13 +50,13 @@ The map is done when each instance has a known data dir, config dir, account, an
 
 | Want | Pattern | Result |
 |---|---|---|
-| Accounts that share configuration and history, one Desktop open at a time, switched in one click or from the menu bar | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch.py` | Every account stays signed in. The unmodified `Claude.app`, its Dock icon, updates, and links open the active account. Sidebars mirrored on each switch. All accounts' Desktops share one config dir, so it suits accounts in one organization. |
+| Accounts that share configuration and history, one Desktop open at a time, switched in one click or from the menu bar | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch.py` | Every account stays signed in. The unmodified `Claude.app`, its Dock icon, updates, and links open the active account. Sidebars mirrored on each switch. Works for individual accounts (Pro or Max, such as several personal sign-ins) and for seats in one organization. |
 | A primary account plus an alternate that also sees the primary's sessions | The switcher, or the mirror script with `--mode primary` | The alternate lists the primary's sessions; the primary keeps only its own. |
 | Accounts in one Desktop, switched by hand | Sign out and in within the app | Each account keeps its own sidebar in the same data dir; signing in again on every switch. |
 | Accounts open side by side | A wrapper per account with its own `--user-data-dir`, on the shared config dir | Separate sidebars, mirrored only while all are quit. The shared `.claude.json` names whichever account wrote last, so keep CLI logins out of that config dir. |
 | CLI accounts that share configuration and history | A config dir per account, with the shareable items linked from the shared one | Separate `/login`s; shared skills, `CLAUDE.md`, settings, and history. |
 | A second CLI account without another config dir | `claude setup-token` for that account, set as `CLAUDE_CODE_OAUTH_TOKEN` in its command | Works, without claude.ai connectors or Remote Control. |
-| A different account per agent in an orchestrator | The orchestrator's per-agent environment sets `CLAUDE_CONFIG_DIR`, or its command is `claude-switch.py exec -- claude` | Each new agent runs on the selected account. |
+| A different account per agent in an orchestrator | The switcher's `claude` shim on the orchestrator's `PATH`, or its per-agent environment sets `CLAUDE_CONFIG_DIR` | Each new agent runs on the selected account. |
 | Fully separate accounts | Own data dir and own config dir, nothing linked | No sharing. |
 
 Report these as unavailable: two accounts signed in at once inside one Desktop instance, a single sidebar across accounts without mirroring, choosing the Desktop account through environment credentials, and a distinct Dock tile per running wrapper.
@@ -85,7 +85,7 @@ To move an existing Desktop instance onto its own config dir with history intact
 
 ## Telling instances apart
 
-In the CLI, the command name is the instance (`claude-work`, or a plain `claude` aliased to the switcher), and `/status` shows the account in use. On the Desktop, every running instance shows the same Dock tile; to recolor a wrapper's icon for Finder, Spotlight, and Launchpad, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
+In the CLI, the command name is the instance (`claude-work`, or a plain `claude` that resolves to the switcher's shim), and `/status` shows the account in use. On the Desktop, every running instance shows the same Dock tile; to recolor a wrapper's icon for Finder, Spotlight, and Launchpad, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
 
 ## Cleaning up
 
