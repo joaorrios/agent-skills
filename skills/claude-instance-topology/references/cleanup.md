@@ -10,7 +10,7 @@ Build the topology map from `SKILL.md`, then extend it with every artifact that 
 - **Shell entry points**: aliases, functions, and `CLAUDE_CONFIG_DIR` exports in shell startup files (`~/.zshrc`, `~/.zprofile`, `~/.bashrc`, `~/.bash_profile`, fish config), and `claude*` scripts in `~/bin`, `~/.local/bin`, `/usr/local/bin`, and `/opt/homebrew/bin`. Tell wrapper scripts apart from official installations: `which -a claude` lists every `claude` on the `PATH`, and `claude doctor` reports the installation in use.
 - **Tool configurations**: agent orchestrators and editors that launch Claude Code with their own environment, such as Paseo provider entries in `~/.paseo/config.json`, can set `CLAUDE_CONFIG_DIR` per agent.
 - **Config dirs**: `~/.claude` and every `~/.claude-*` or other directory any entry point passes as `CLAUDE_CONFIG_DIR`.
-- **Data dirs**: `~/Library/Application Support/Claude*`.
+- **Data dirs**: `~/Library/Application Support/Claude*`, including a default data dir that is a symlink, and the switcher's `~/.config/claude-switch/`.
 - **Links**: symlinks inside config dirs, including `projects/` bridges, and any whose target no longer exists.
 - **Backups**: `*.orig-backup` files, `AppIcon.icns.orig-backup`, and tarball folders such as `~/.claude-instance-backups`.
 

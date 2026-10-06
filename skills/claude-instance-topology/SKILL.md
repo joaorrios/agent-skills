@@ -1,8 +1,8 @@
 ---
 name: claude-instance-topology
-description: Maps and safely changes how Claude Desktop and Claude Code CLI instances on macOS share login, configuration, and session transcripts. Use when adding or modifying an instance (separate accounts, `CLAUDE_CONFIG_DIR`, `--user-data-dir`, per-instance skills/hooks), telling instances apart, cleaning up leftover launchers, aliases, and config or data dirs, recovering a session that shows "Session not found on disk" / "Sessão não encontrada no disco" or lost history after a config change or app update, or before editing any Claude Desktop session store.
+description: Maps and safely changes how Claude Desktop and Claude Code CLI instances on macOS share login, configuration, and session transcripts. Use when adding or modifying an instance or switching between accounts (separate accounts, `CLAUDE_CONFIG_DIR`, `--user-data-dir`, per-instance skills/hooks), telling instances apart, cleaning up leftover launchers, aliases, and config or data dirs, recovering a session that shows "Session not found on disk" / "Sessão não encontrada no disco" or lost history after a config change or app update, or before editing any Claude Desktop session store.
 license: MIT
-compatibility: macOS with Claude Desktop and/or the Claude Code CLI. The icon script needs Python 3 and Pillow.
+compatibility: macOS with Claude Desktop and/or the Claude Code CLI. Scripts need Python 3; the icon script also needs Pillow, and the menu bar plugin needs SwiftBar.
 ---
 
 # Claude Instance Topology
@@ -16,7 +16,7 @@ An instance's **topology** is what it shares with other instances: Desktop accou
 
 What follows from the table:
 
-- **Accounts.** A Desktop account follows the data dir: two wrappers with different data dirs can sign in to different accounts while sharing one config dir. CLI credentials, including the macOS Keychain entry, follow the config dir, so a new config dir starts with the CLI logged out. A Console sign-in without an API key lives in the Anthropic profile directory, outside any config dir.
+- **Accounts.** A Desktop account follows the data dir: two data dirs can stay signed in to different accounts while sharing one config dir, and the data dir may be a symlink. CLI credentials, including the macOS Keychain entry, follow the config dir, so a new config dir starts with the CLI logged out. A Console sign-in without an API key lives in the Anthropic profile directory, outside any config dir.
 - **Transcripts.** Desktop and CLI both read `CONFIG_DIR/projects/<project>/<session-id>.jsonl`. Changing `CLAUDE_CONFIG_DIR` for an instance that already has sessions points it at a different, usually empty, `projects/`.
 - **Credentials the Desktop reads.** It signs in with OAuth. It ignores `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, and `apiKeyHelper` (except under a third-party inference configuration) and never reads Anthropic profiles.
 - **Synced configuration.** Skills and plugins enabled on a claude.ai account load in every instance signed in to that account, whatever its config dir.
@@ -48,23 +48,40 @@ Before changing anything, build the map from the machine itself:
 
 The map is done when each instance has a known data dir, config dir, accounts, and transcript location, and every shared or bridged `projects/` is accounted for.
 
-## Change an instance safely
+## Choose a topology
 
-Choose the setting by what should differ:
+Match what the user wants to share against these verified patterns:
 
-- **Separate Desktop account or sidebar**, same configuration and transcripts: give a wrapper launcher its own `--user-data-dir`.
-- **Separate configuration or CLI account** (different skills, plugins, hooks, `CLAUDE.md`): give the instance its own `CLAUDE_CONFIG_DIR`. Only a separate config dir changes the skill, plugin, and hook set for a whole instance; inside one instance, use project-level configuration instead.
-- **Separate configuration with shared history**: give it its own config dir, then **bridge** transcripts back by making its `projects/` a symlink to the old config dir's `projects/`. Session records store only `cliSessionId` and `cwd` and build the transcript path at load time, so the bridge resolves existing sessions. The bridge shares auto memory too.
+| Want | Pattern | Result |
+|---|---|---|
+| Two accounts in one Desktop, same configuration and history, switched by hand | Sign out and in within the app | Each account keeps its own sidebar in the same data dir. Signing in again on every switch. |
+| Two accounts, one Desktop open at a time, same configuration and history, one-click switch | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch` | Every account stays signed in. The default `Claude.app`, Dock, updates, and links open the active account. Sidebars mirrored on each switch. |
+| Two accounts open side by side | A wrapper per account with its own `--user-data-dir`, both on the shared config dir | Separate sidebars; mirror them only while both are quit. |
+| Two CLI accounts, same configuration and history | A config dir per account; link the shared files into the second | Each `/login` stays separate; skills, `CLAUDE.md`, settings, and history are shared. |
+| A second CLI account without another config dir | `claude setup-token` for that account, set as `CLAUDE_CODE_OAUTH_TOKEN` in its command | Works, without claude.ai connectors or Remote Control. |
+| Fully separate accounts | Own data dir and own config dir, nothing linked | No sharing. |
+| A different account per agent in an orchestrator such as Paseo | A provider entry per account setting `CLAUDE_CONFIG_DIR`, or one provider whose command is `claude-switch exec -- claude` | Each agent runs on the selected account. |
 
-Name each instance once and reuse the name everywhere, so every artifact traces back to it: for `work`, the wrapper `Claude Work.app`, the data dir `~/Library/Application Support/Claude-Work`, the config dir `~/.claude-work`, and the CLI command `claude-work`, defined as a shell alias or function rather than a script in a `bin` directory.
+To set up the switcher, side-by-side mirroring, or linked CLI config dirs, read [`references/switching.md`](references/switching.md).
+
+Out of reach: two accounts signed in at once inside one Desktop instance; one sidebar across accounts without mirroring; picking the Desktop account through environment credentials, which it ignores; and a distinct Dock tile per running wrapper.
+
+What shares and what never does:
+
+- **Shareable**: `CLAUDE.md`, `settings.json`, `skills/`, `agents/`, `commands/`, `output-styles/`, `plugins/`, `hooks/`, and history: `projects/` (transcripts and auto memory), `file-history/`, `history.jsonl`, `plans/`. Symlinks survive logins and settings writes.
+- **Account-bound**: `.claude.json` (account identity, personal MCP servers, folder trust), credentials, `policy-limits.json`, `remote-settings.json`, caches. Sharing `.claude.json` makes a config dir report the other account. The Desktop also writes its signed-in account into its config dir's `.claude.json`, so give CLI accounts their own config dirs rather than the Desktop's.
+- **Desktop sidebars**: records live under `claude-code-sessions/<account>/<org>/`, one partition per account, so each account lists only its own sessions until they are mirrored.
+
+Name each account once and reuse the name everywhere, so every artifact traces back to it: for `work`, the data dir `~/Library/Application Support/Claude-Work`, the config dir `~/.claude-work`, any wrapper `Claude Work.app`, and the CLI command `claude-work`, defined as a shell alias or function rather than a script in a `bin` directory.
 
 Guardrails for every change:
 
-- Quit the target Desktop instance before editing its launcher or session store; a running app overwrites store edits when it quits. Other instances can keep running, and one instance can edit another's store.
+- Quit the target Desktop instance before editing its launcher, data dir, or session store; a running app overwrites store edits when it quits. Other instances can keep running, and one instance can edit another's store.
 - Back up whatever you touch: the launcher and the data dir's `claude-code-sessions/`.
-- Create the bridge **before** the first launch under a new config dir. A Desktop that opens with an empty `projects/` can mark its sessions as unavailable.
-- Give bridged config dirs the same retention. Each config dir sweeps the shared transcripts with its own `cleanupPeriodDays` and `desktopSessionCleanupPeriodDays`, so the shortest setting wins.
+- When an instance moves to a new config dir, bridge its history **before** the first launch: make the new `projects/` a symlink to the old one. A Desktop that opens with an empty `projects/` can mark its sessions as unavailable.
+- Give config dirs that share history the same retention. Each sweeps the shared transcripts with its own `cleanupPeriodDays` and `desktopSessionCleanupPeriodDays`, so the shortest setting wins.
 - Keep one copy of each transcript. A hand-copied duplicate in a second project directory makes `claude --resume <session-id>` report not-found from any other project directory.
+- Open a session in one account at a time. Mirrored records point at the same transcript, and two writers can corrupt it. Usage counts against the account that runs the turn.
 
 To move an existing Desktop instance onto its own config dir with history intact, follow [`references/lean-instance-runbook.md`](references/lean-instance-runbook.md). It covers apply, verify, and undo.
 
