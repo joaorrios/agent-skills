@@ -12,6 +12,7 @@ active account's data dir, and the CLI reads the active account's config dir.
     claude-switch.py use personal        # quit the Desktop, mirror sessions, switch, reopen
     claude-switch.py exec -- claude      # run a command with the active account's config dir
     claude-switch.py env                 # print the export line for the active account
+    claude-switch.py sync-launchd        # point apps opened from the Dock at the active account
 
 Configuration lives in ~/.config/claude-switch/config.json (or $CLAUDE_SWITCH_CONFIG):
 
@@ -28,8 +29,9 @@ Configuration lives in ~/.config/claude-switch/config.json (or $CLAUDE_SWITCH_CO
 Accounts appear in the menu bar in this order, under an optional "label".
 
 Optional keys: "desktop_link" (the symlinked data dir the Desktop opens;
-default: the Desktop's default data dir), "desktop_config_dir" (CLAUDE_CONFIG_DIR
-for the Desktop; default: unset, so ~/.claude), "shared_config_dir" (the
+default: the Desktop's default data dir), "desktop_config_dir" (one CLAUDE_CONFIG_DIR
+for every account's Desktop; default: unset, so each account's Desktop uses its
+own config_dir), "shared_config_dir" (the
 directory link-config shares from; default ~/.claude), and per-account
 "partition" (full account UUID, a slash, and the start of the org UUID of its
 session records, needed only when its data dir holds more than one).
@@ -178,10 +180,17 @@ def apply_mirror(mirror, chosen, copies):
     print(f"mirrored {len(copies)} session record(s)")
 
 
-def open_desktop(config):
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_DIR"}
-    if config.get("desktop_config_dir"):
-        env["CLAUDE_CONFIG_DIR"] = str(expand(config["desktop_config_dir"]))
+def desktop_config_dir(config, name):
+    return expand(config.get("desktop_config_dir") or account(config, name)["config_dir"])
+
+
+def sync_launchd(config, name):
+    """Make apps opened by launchd (Dock, Finder, links) use the account's config dir."""
+    subprocess.run(["launchctl", "setenv", "CLAUDE_CONFIG_DIR", str(desktop_config_dir(config, name))], check=True)
+
+
+def open_desktop(config, name):
+    env = dict(os.environ, CLAUDE_CONFIG_DIR=str(desktop_config_dir(config, name)))
     command = ["open", "-n", "-a", "Claude"]
     link = link_path(config)
     if link != DEFAULT_DATA_DIR:
@@ -236,7 +245,8 @@ def cmd_use(config, mirror, args):
     STATE_FILE.write_text(args.name + "\n")
     print(f"active account: {args.name}")
     if not args.no_open:
-        open_desktop(config)
+        sync_launchd(config, args.name)
+        open_desktop(config, args.name)
 
 
 def cmd_adopt(config, mirror, args):
@@ -288,6 +298,13 @@ def cmd_env(config, _mirror, args):
     print(f"export CLAUDE_CONFIG_DIR={expand(account(config, name)['config_dir'])}")
 
 
+def cmd_sync_launchd(config, _mirror, _args):
+    name = active_desktop(config)
+    if not name:
+        fail("no active Desktop account; run adopt or use first")
+    sync_launchd(config, name)
+
+
 def cmd_exec(config, _mirror, args):
     name = args.account or active_cli(config)
     if not name:
@@ -310,6 +327,7 @@ def main():
     commands.add_parser("adopt").add_argument("name")
     commands.add_parser("link-config").add_argument("name")
     commands.add_parser("env").add_argument("name", nargs="?")
+    commands.add_parser("sync-launchd")
     run = commands.add_parser("exec")
     run.add_argument("--account")
     run.add_argument("command", nargs=argparse.REMAINDER)
@@ -318,6 +336,7 @@ def main():
     handlers = {
         "status": cmd_status, "use": cmd_use, "adopt": cmd_adopt,
         "link-config": cmd_link_config, "env": cmd_env, "exec": cmd_exec,
+        "sync-launchd": cmd_sync_launchd,
     }
     handlers[args.command_name](load_config(), load_mirror(), args)
 
