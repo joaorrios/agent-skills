@@ -31,8 +31,8 @@ Optional keys: "desktop_link" (the symlinked data dir the Desktop opens;
 default: the Desktop's default data dir), "desktop_config_dir" (CLAUDE_CONFIG_DIR
 for the Desktop; default: unset, so ~/.claude), "shared_config_dir" (the
 directory link-config shares from; default ~/.claude), and per-account
-"partition" (account/org prefix of its session records, needed only when its
-data dir holds more than one).
+"partition" (full account UUID, a slash, and the start of the org UUID of its
+session records, needed only when its data dir holds more than one).
 """
 
 import argparse
