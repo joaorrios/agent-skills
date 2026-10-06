@@ -55,7 +55,7 @@ When linked config dirs keep separate `settings.json` files, give them the same 
 
 ## Orchestrators
 
-Tools that launch Claude Code per agent, such as Paseo, run the `claude` executable directly, so shell aliases never reach them. With the shim from step 5, they follow the active account with no change of their own once restarted, provided their `PATH` comes from the same login shell; confirm which `claude` they resolve (in Paseo, `paseo provider diagnostic claude`). Otherwise select the account in the tool: one provider or profile per account setting `CLAUDE_CONFIG_DIR`, or a provider command of `claude-switch.py exec -- <absolute path to claude>`. Agents already running keep the account they started with. It is working when a new agent reports the active account's config dir and email.
+Tools that launch Claude Code per agent, such as Paseo, run the `claude` executable directly, so shell aliases never reach them. With the shim from step 5, they follow the active account with no change of their own once their long-running process is restarted from a shell that has the new `PATH`. Restarting a desktop app may leave a separate daemon running with its old `PATH`; in Paseo, run `paseo daemon stop` and then `zsh -lic 'paseo daemon start'`, and confirm with `paseo provider diagnostic claude`. Otherwise select the account in the tool: one provider or profile per account setting `CLAUDE_CONFIG_DIR`, or a provider command of `claude-switch.py exec -- <absolute path to claude>`. Agents already running keep the account they started with. It is working when a new agent reports the active account's config dir and email.
 
 ## Second CLI account through a token
 
