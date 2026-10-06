@@ -20,7 +20,7 @@ To undo, quit the Desktop, remove the symlink, and move one account's data dir b
 
 ### Menu bar
 
-`scripts/swiftbar/claude-switch.30s.sh` is a [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin that shows the active account, switches on click, and opens a terminal on the active account. Copy it into the SwiftBar plugin folder and set `CLAUDE_SWITCH` in it to the path of `claude-switch.py` unless that is on the `PATH`. It is done when the menu lists every account and a click switches the Desktop.
+`scripts/swiftbar/claude-switch.1h.sh` is a [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin that shows the active account, switches on click, and opens a terminal on the active account. Copy it into the SwiftBar plugin folder and set `CLAUDE_SWITCH` in it to the path of `claude-switch.py` unless that is on the `PATH`. It is done when the menu lists every account and a click switches the Desktop.
 
 Usage limits per account come from running the unmodified `claude` under each account's `CLAUDE_CONFIG_DIR` and reading `/usage`, or from token counts in the local transcripts.
 

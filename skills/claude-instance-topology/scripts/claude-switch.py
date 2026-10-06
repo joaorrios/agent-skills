@@ -25,6 +25,8 @@ Configuration lives in ~/.config/claude-switch/config.json (or $CLAUDE_SWITCH_CO
       }
     }
 
+Accounts appear in the menu bar in this order, under an optional "label".
+
 Optional keys: "desktop_link" (the symlinked data dir the Desktop opens;
 default: the Desktop's default data dir), "desktop_config_dir" (CLAUDE_CONFIG_DIR
 for the Desktop; default: unset, so ~/.claude), "shared_config_dir" (the
@@ -192,6 +194,7 @@ def cmd_status(config, mirror, args):
         print(json.dumps({
             "desktop": desktop, "cli": cli, "running": desktop_running(config, mirror),
             "accounts": list(config["accounts"]),
+            "labels": {name: entry.get("label", name) for name, entry in config["accounts"].items()},
         }))
         return
     print(f"desktop link: {link} -> {link.resolve() if link.is_symlink() else '(not a symlink; run adopt)'}")
