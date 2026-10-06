@@ -58,6 +58,6 @@ The Desktop loads a session by reading `cliSessionId` and `cwd` from the record 
 
 Recovery is complete when every affected session opens with its full history, or is reported as unrecoverable with the reason.
 
-If the scan clears links again on a later launch, fix the cause first, usually a missing `projects/` bridge (see `SKILL.md`), then reapply these steps.
+If the scan clears links again on a later launch, fix the cause first, usually a missing `projects/` bridge (see `references/lean-instance-runbook.md`), then reapply these steps.
 
 Without editing records, the same transcript can be reopened as a new entry: from the CLI with `claude --resume <session-id>` or `claude --resume <absolute-transcript-path>`, run under the config dir that holds the transcript, or from a Desktop session with `/resume`, which lists sessions started from the CLI.

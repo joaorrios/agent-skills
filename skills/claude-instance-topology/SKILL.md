@@ -85,7 +85,7 @@ To move an existing Desktop instance onto its own config dir with history intact
 
 ## Telling instances apart
 
-In the CLI, the command name is the instance (`claude` and `claude-work`), and `/status` shows the account in use. On the Desktop, every running instance shows the same Dock tile; to recolor a wrapper's icon for Finder, Spotlight, and Launchpad, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
+In the CLI, the command name is the instance (`claude-work`, or a plain `claude` aliased to the switcher), and `/status` shows the account in use. On the Desktop, every running instance shows the same Dock tile; to recolor a wrapper's icon for Finder, Spotlight, and Launchpad, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
 
 ## Cleaning up
 
