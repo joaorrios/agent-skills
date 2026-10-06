@@ -75,6 +75,14 @@ check "runs through a symlink" "$(python3 -B "$T/claude-switch" status --json | 
 python3 - "$T/config.json" <<'PY2'
 import json, sys
 config = json.load(open(sys.argv[1]))
+config["accounts"]["a"]["partition"] = "no-such-account/org"
+json.dump(config, open(sys.argv[1], "w"))
+PY2
+if run use b --no-open >/dev/null 2>&1; then check "use refuses a partition that matches nothing" "ran" "refused"; else check "use refuses a partition that matches nothing" "refused" "refused"; fi
+
+python3 - "$T/config.json" <<'PY2'
+import json, sys
+config = json.load(open(sys.argv[1]))
 config["accounts"]["bad name"] = config["accounts"]["a"]
 json.dump(config, open(sys.argv[1], "w"))
 PY2

@@ -151,6 +151,8 @@ def partition_of(name, entry, mirror):
     prefix = entry.get("partition")
     if prefix:
         found = [p for p in found if f"{p.parent.name}/{p.name}".startswith(prefix)]
+        if not found:
+            fail(f"account {name!r}: \"partition\" {prefix!r} matches nothing; see claude-session-mirror.py --data-dir <its data dir> --list")
     if len(found) == 1:
         return found[0]
     if not found:
