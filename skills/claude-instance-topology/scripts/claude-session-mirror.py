@@ -127,10 +127,10 @@ def backup(store):
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     label = store.parent.name.replace(" ", "_")
     stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 10**9:09d}"
-    target = BACKUP_DIR / f"records-mirror-{label}-{stamp}.tgz"
+    target = BACKUP_DIR / f"records-mirror-{label}--{stamp}.tgz"
     with tarfile.open(target, "w:gz") as archive:
         archive.add(store, arcname=store.name)
-    for old in sorted(BACKUP_DIR.glob(f"records-mirror-{label}-*.tgz"))[:-BACKUP_KEEP]:
+    for old in sorted(BACKUP_DIR.glob(f"records-mirror-{label}--*.tgz"))[:-BACKUP_KEEP]:
         old.unlink()
     return target
 

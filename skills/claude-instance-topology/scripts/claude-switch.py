@@ -210,6 +210,11 @@ def cmd_use(config, mirror, args):
     mirroring = config.get("mirror", True) and not args.no_mirror
     if mirroring:
         mirror_plan(config, mirror)  # fail on ambiguous partitions before quitting anything
+        linked = link.resolve()
+        for name, entry in config["accounts"].items():
+            other = expand(entry["data_dir"])
+            if other.resolve() != linked and mirror.instance_running(other):
+                fail(f"a Claude instance is open on {name!r}'s data dir; quit it and retry")
     if desktop_running(config, mirror):
         quit_desktop(config, mirror)
     if mirroring:

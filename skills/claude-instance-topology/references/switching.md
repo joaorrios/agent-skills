@@ -28,13 +28,17 @@ Usage limits per account come from running the unmodified `claude` under each ac
 
 `scripts/claude-session-mirror.py` copies Desktop session records between account partitions, in one data dir or across several. `claude-switch.py use` runs it for all accounts; run it directly for side-by-side wrappers or a primary-and-alternate setup. Before mirroring, weigh:
 
-- **Deletions do not propagate**: a session deleted in one account returns from another on the next mirror. Archive it instead, since the newest record, archived state included, wins.
+- **Deletions do not propagate**: a session deleted in one account returns from another on the next mirror. Archive it instead, in every account unless the next mirror shows the archive reached them.
 - **Organization policy**: mirroring a work organization's sessions into a personal account copies their titles and makes their history reachable there.
 - **Connectors**: a record carries its account's claude.ai connector list. Whether the other account uses or replaces it is unverified.
 
 ## Side by side
 
 Give each account a wrapper `.app` with its own `--user-data-dir` (the runbook shows the launcher format), all on the shared config dir. Mirror with `claude-session-mirror.py --data-dir <a> --data-dir <b> --partitions … --apply` while every wrapper is quit. The setup is complete when each wrapper opens its own account without asking to sign in.
+
+## Linked config dirs
+
+When linked config dirs keep separate `settings.json` files, give them the same `cleanupPeriodDays` and `desktopSessionCleanupPeriodDays`: each sweeps the shared transcripts with its own setting, so the shortest wins.
 
 ## Orchestrators
 
