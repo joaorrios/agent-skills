@@ -69,6 +69,9 @@ check "link-config links shared history" "$(readlink "$T/cfg-b/projects")" "$T/s
 check "link-config leaves account state alone" "$( [ -e "$T/cfg-b/.claude.json" ] && echo linked || echo absent)" "absent"
 if run link-config a >/dev/null 2>&1; then check "link-config refuses the shared dir itself" "ran" "refused"; else check "link-config refuses the shared dir itself" "refused" "refused"; fi
 
+ln -s "$SWITCH" "$T/claude-switch"
+check "runs through a symlink" "$(python3 -B "$T/claude-switch" status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["desktop"])')" "c"
+
 python3 - "$T/config.json" <<'PY2'
 import json, sys
 config = json.load(open(sys.argv[1]))

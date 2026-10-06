@@ -63,7 +63,7 @@ def fail(message):
 
 
 def load_mirror():
-    path = Path(__file__).with_name("claude-session-mirror.py")
+    path = Path(__file__).resolve().with_name("claude-session-mirror.py")
     spec = importlib.util.spec_from_file_location("claude_session_mirror", path)
     module = importlib.util.module_from_spec(spec)
     sys.dont_write_bytecode = True
