@@ -9,7 +9,7 @@ The Desktop's startup scan can fail to validate a transcript, for example when i
 - `<data-dir>/claude-code-sessions/<ws>/<ws2>/local_<id>.json`: the session **record**, with `title`, `cwd`, `cliSessionId`, `transcriptUnavailable`, and `lastActivityAt` (epoch milliseconds).
 - `<data-dir>/local-agent-mode-sessions/…`: Cowork and agent-mode sessions, each with its own `.claude/` home.
 - `<data-dir>/Session Storage/`: Electron UI state only, never transcripts.
-- `CONFIG_DIR/projects/<project>/<session-id>.jsonl`: the **transcript**. `<project>` is the absolute working directory with every non-alphanumeric character replaced by `-`; past 200 characters it is truncated with a hash appended, so match on the first 200 characters. `CLAUDE_CODE_PROJECT_DIR_NAME` overrides the name. Only top-level `<uuid>.jsonl` files are transcripts; set-aside copies (`*.orphaned-*.jsonl`, `*.jsonl.superseded-*`) and `<session>/subagents/` are not.
+- `CONFIG_DIR/projects/<project>/<session-id>.jsonl`: the **transcript**. `<project>` is the absolute working directory with every non-alphanumeric character replaced by `-`; past 200 characters it is truncated with a hash appended, so match on the first 200 characters. `CLAUDE_CODE_PROJECT_DIR_NAME`, set together with `CLAUDE_CONFIG_DIR`, overrides the name. Only top-level `<uuid>.jsonl` files are transcripts; set-aside copies (`*.orphaned-*.jsonl`, `*.jsonl.superseded-*`) and `<session>/subagents/` are not.
 
 The Desktop loads a session by reading `cliSessionId` and `cwd` from the record and opening the matching transcript. Restoring the record's link restores the session.
 

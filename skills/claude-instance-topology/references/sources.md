@@ -13,4 +13,4 @@ The official documentation is authoritative for documented behavior. Append `.md
 | [Environment variables](https://code.claude.com/docs/en/env-vars) | Current behavior of `CLAUDE_CONFIG_DIR` and related variables. |
 | [Agent SDK sessions](https://code.claude.com/docs/en/agent-sdk/sessions) | Moving a session file to another machine and resuming it; session listing and inspection APIs. |
 
-Desktop internals (`--user-data-dir`, the `claude-code-sessions` records, the startup scan, the Desktop account following the data dir) are undocumented. Their descriptions in this skill come from inspecting the app and can change with any release; verify them on the machine before acting.
+Desktop internals (`--user-data-dir`, the `claude-code-sessions` records and their per-account partitions, the startup scan, the Desktop account following the data dir, a symlinked data dir) are undocumented. Their descriptions in this skill come from inspecting the app and can change with any release; verify them on the machine before acting.
