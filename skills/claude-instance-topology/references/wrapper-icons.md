@@ -15,9 +15,9 @@ Variants are the background and glyph color pairs in the script's `VARIANTS` tab
 
 The icon is done when Finder and Spotlight show the new colors for the wrapper and `--undo` restores the original.
 
-It samples the two-tone palette from the installed `Claude.app` artwork on every run, so it follows upstream art changes, and it stops with an error if that artwork is no longer two-tone. It backs up the original icon as `AppIcon.icns.orig-backup`, re-registers the bundle with `lsregister`, and restarts the Dock. It refuses `/Applications/Claude.app` itself: recoloring the shared bundle would invalidate its signature and make later runs sample already-recolored art.
+It backs up the original icon as `AppIcon.icns.orig-backup`, re-registers the bundle, and restarts the Dock. It refuses `/Applications/Claude.app` itself.
 
-The script recolors the largest rendition and downscales every size from it. The hand-tuned 16 and 32 px renditions end in a warm semi-transparent bevel that a two-tone remap turns into a bright fringe; the largest rendition ends in a neutral shadow that recolors cleanly. Keep that design when changing the script.
+Before changing the script, read its docstrings; they record why it samples live art and downscales from the largest rendition.
 
 Run `bash scripts/tests/claude-wrapper-icon.test.sh` from the skill root after any change. The image checks run only where Pillow is installed and report as skipped otherwise.
 

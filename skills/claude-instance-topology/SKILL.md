@@ -1,6 +1,6 @@
 ---
 name: claude-instance-topology
-description: Maps and safely changes how Claude Desktop and Claude Code CLI instances on macOS share accounts, configuration, and history. Use when adding, changing, or switching between Claude accounts or instances, including sharing skills, CLAUDE.md, or history across accounts and setting up a menu bar switcher; telling instances apart; cleaning up leftover instances; recovering a Desktop session that shows "Session not found on disk"; or before editing a Desktop session store.
+description: Instance topology for Claude Desktop and the Claude Code CLI on macOS: which accounts, configuration, and history each instance shares, and how to change it safely. Use when adding or switching Claude accounts; sharing skills, CLAUDE.md, or history across accounts; telling instances apart; cleaning up leftover instances; recovering a Desktop session that shows "Session not found on disk"; or before editing a Desktop session store.
 license: MIT
 compatibility: macOS with Claude Desktop and/or the Claude Code CLI. Scripts need Python 3; the icon script also needs Pillow, and the menu bar plugin needs SwiftBar.
 ---
@@ -23,17 +23,17 @@ What follows from the table:
 
 ## Authentication boundary
 
-A topology changes where configuration and history live, never how authentication works. **Switch the selector, not the secret**: to change accounts, choose a different config dir or Desktop data dir, each holding the login it received through Anthropic's own flow.
+A topology changes where configuration and history live, never how authentication works. **Switch the selector, not the secret**: to change accounts, choose a different config dir or Desktop data dir, each holding the login it received through a **native flow**: Desktop sign-in, `/login`, or `/logout` in the unmodified apps.
 
 | Practice | Use |
 |---|---|
-| Desktop sign-in, `/login`, `/logout` in the unmodified apps | The way every login is made and retired. |
+| Native flows | The way every login is made and retired. |
 | Choosing the config dir or data dir through an alias, launcher, symlink, or another tool's per-agent environment, including relocating a whole data dir | The documented way to keep several accounts. |
-| `claude setup-token` with `CLAUDE_CODE_OAUTH_TOKEN`, in Claude Code itself | Documented for non-interactive environments. It cannot use claude.ai connectors or Remote Control. |
+| `claude setup-token` with `CLAUDE_CODE_OAUTH_TOKEN`, in Claude Code itself | Documented for non-interactive environments. |
 | Reading, extracting, or transferring the credentials the apps store, between accounts or machines (Keychain entries, `.credentials.json`, the account fields of `.claude.json`) | Outside the native flows. Leave them where the flows put them. |
 | Running OAuth or token exchanges outside the apps, or using subscription credentials in tools that handle the credential themselves | Prohibited by Anthropic's terms. |
 
-When a requested setup needs anything outside the first three rows, say so and offer the nearest native alternative. These rules cover credentials only; whether several accounts or seats may be used by one person, and how usage limits apply to them, is set by the consumer or commercial terms the accounts are under, so have the user confirm that before setting up switching. The current rules are in the legal and compliance page listed in `references/sources.md`.
+When a requested setup needs anything outside the first three rows, say so and offer the nearest native-flow alternative. These rules cover credentials only; whether several accounts or seats may be used by one person, and how usage limits apply to them, is set by the consumer or commercial terms the accounts are under, so have the user confirm that before setting up switching. The current rules are in the legal and compliance page listed in `references/sources.md`.
 
 ## Map the current topology
 
@@ -50,10 +50,10 @@ The map is done when each instance has a known data dir, config dir, account, an
 
 | Want | Pattern | Result |
 |---|---|---|
-| Accounts that share configuration and history, one Desktop open at a time, switched in one click or from the menu bar | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch.py` | Every account stays signed in. The unmodified `Claude.app`, its Dock icon, updates, and links open the active account. Sidebars mirrored on each switch. Works for individual accounts (Pro or Max, such as several personal sign-ins) and for seats in one organization. |
+| Accounts that share configuration and history, one Desktop open at a time, switched in one click or from the menu bar | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch.py` | Every account stays signed in. The unmodified `Claude.app`, its Dock icon, updates, and links open the active account. Sidebars mirrored on each switch. Works for individual accounts (Pro or Max, such as several personal sign-ins) and for seats in one organization. For accounts in different organizations, use Fully separate: cached organization policy carries across a switch. |
 | A primary account plus an alternate that also sees the primary's sessions | The switcher, or the mirror script with `--mode primary` | The alternate lists the primary's sessions; the primary keeps only its own. |
 | Accounts in one Desktop, switched by hand | Sign out and in within the app | Each account keeps its own sidebar in the same data dir; signing in again on every switch. |
-| Accounts open side by side | A wrapper per account with its own `--user-data-dir`, on the shared config dir | Separate sidebars, mirrored only while all are quit. The shared `.claude.json` names whichever account wrote last, so keep CLI logins out of that config dir. |
+| Accounts open side by side | A wrapper per account with its own `--user-data-dir`, on the shared config dir | Separate sidebars, mirrored only while all are quit; keep CLI logins out of the shared config dir. |
 | CLI accounts that share configuration and history | A config dir per account, with the shareable items linked from the shared one | Separate `/login`s; shared skills, `CLAUDE.md`, settings, and history. |
 | A second CLI account without another config dir | `claude setup-token` for that account, set as `CLAUDE_CODE_OAUTH_TOKEN` in its command | Works, without claude.ai connectors or Remote Control. |
 | A different account per agent in an orchestrator | The switcher's `claude` shim on the orchestrator's `PATH`, or its per-agent environment sets `CLAUDE_CONFIG_DIR` | Each new agent runs on the selected account. |
@@ -61,7 +61,7 @@ The map is done when each instance has a known data dir, config dir, account, an
 
 Report these as unavailable: two accounts signed in at once inside one Desktop instance, a single sidebar across accounts without mirroring, choosing the Desktop account through environment credentials, and a distinct Dock tile per running wrapper.
 
-Recipes for every pattern are in [`references/switching.md`](references/switching.md).
+Recipes for the switcher, side-by-side, linked-config-dir, orchestrator, and token patterns are in [`references/switching.md`](references/switching.md).
 
 This step is complete when the user has agreed on a pattern and every account has a name, a data dir, and a config dir.
 
@@ -79,13 +79,13 @@ Name each account once and reuse the name everywhere, so every artifact traces b
 
 - Quit the target Desktop instance before editing its launcher, data dir, or session store; a running app overwrites store edits when it quits. Other instances can keep running, and one instance can edit another's store.
 - Back up whatever you touch: the launcher and the data dir's `claude-code-sessions/`.
-- Open a session in one account at a time. Mirrored records point at the same transcript, and two writers can corrupt it. Usage counts against the account that runs the turn.
+- Open a session in one account at a time. Mirrored records point at the same transcript, and two writers can corrupt it.
 
 To move an existing Desktop instance onto its own config dir with history intact, follow [`references/lean-instance-runbook.md`](references/lean-instance-runbook.md).
 
 ## Telling instances apart
 
-In the CLI, the command name is the instance (`claude-work`, or a plain `claude` that resolves to the switcher's shim), and `/status` shows the account in use. On the Desktop, every running instance shows the same Dock tile; to recolor a wrapper's icon for Finder, Spotlight, and Launchpad, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
+In the CLI, the command name is the instance (`claude-work`, or a plain `claude` that resolves to the switcher's shim), and `/status` shows the account in use; `/usage` under each account's `CLAUDE_CONFIG_DIR` shows its limits, and usage counts against the account that runs the turn. On the Desktop, every running instance shows the same Dock tile; to recolor a wrapper's icon for Finder, Spotlight, and Launchpad, read [`references/wrapper-icons.md`](references/wrapper-icons.md).
 
 ## Cleaning up
 
@@ -93,8 +93,8 @@ When instances, launchers, aliases, scripts, or config and data dirs have piled 
 
 ## Recovering a session
 
-When a Desktop session opens empty with "Session not found on disk", or history disappears after a config dir change or app update, the transcript is usually intact and only the record's link broke. Follow [`references/session-recovery.md`](references/session-recovery.md) before sending any message in that session; a new message overwrites the link.
+When a Desktop session opens empty with "Session not found on disk" (or a localized form such as "Sessão não encontrada no disco"), its record shows `transcriptUnavailable: true`, or history disappears after a config dir change or app update, the transcript is usually intact and only the record's link broke. Follow [`references/session-recovery.md`](references/session-recovery.md) before sending any message in that session; a new message overwrites the link.
 
 ## Sources
 
-Paths, precedence rules, and retention change between releases. When a fact here conflicts with what you observe, or a decision hinges on it, check [`references/sources.md`](references/sources.md) and follow the current documentation.
+Paths, precedence rules, and retention change between releases. When a fact here conflicts with what you observe, or a decision hinges on it, check [`references/sources.md`](references/sources.md), follow the current documentation, and note the difference to the user.

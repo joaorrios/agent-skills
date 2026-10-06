@@ -1,8 +1,6 @@
 # Recover a Desktop session
 
-Use when a Claude Desktop Code session opens empty with "Session not found on disk" ("Sessão não encontrada no disco"), its record shows `transcriptUnavailable: true`, or history vanished after a config dir change or app update.
-
-The Desktop's startup scan can fail to validate a transcript, for example when its config dir's `projects/` is empty after a `CLAUDE_CONFIG_DIR` change. When that happens it clears `cliSessionId` and sets `transcriptUnavailable: true` in the session record, while the transcript usually stays intact on disk. Tracked upstream as [anthropics/claude-code#63082](https://github.com/anthropics/claude-code/issues/63082). This is observed app behavior, not documented behavior, so confirm it against the current app before relying on the details.
+The Desktop's startup scan can fail to validate a transcript, for example when its config dir's `projects/` is empty after a `CLAUDE_CONFIG_DIR` change. When that happens it clears `cliSessionId` and sets `transcriptUnavailable: true` in the session record, while the transcript usually stays intact on disk. Tracked upstream as [anthropics/claude-code#63082](https://github.com/anthropics/claude-code/issues/63082).
 
 ## Where things live
 

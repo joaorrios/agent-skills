@@ -1,6 +1,6 @@
 # Sources
 
-The official documentation is authoritative for documented behavior. Append `.md` to any page URL for a plain-markdown copy. When it disagrees with this skill, follow the documentation and note the difference to the user.
+The official documentation is authoritative for documented behavior. Append `.md` to any page URL for a plain-markdown copy.
 
 | Page | Settles |
 |---|---|
