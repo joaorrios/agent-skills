@@ -10,6 +10,7 @@ In its configuration, give every account its own `data_dir` and its own `config_
 
 1. Quit the Desktop and back up `~/Library/Application Support/Claude`.
 2. Run `claude-switch.py adopt <name>` for the account the Desktop is signed in to now.
+   If `use` later reports that a data dir holds several partitions, list them with `claude-session-mirror.py --data-dir <data dir> --list` and set that account's `"partition"` to the full account UUID, a slash, and the start of the org UUID of the one with sessions.
 3. For each other account, run `claude-switch.py use <name>` and sign in once in the Desktop it opens.
 4. For each account, run `claude-switch.py link-config <name>`, then sign in once with `CLAUDE_CONFIG_DIR=<config_dir> claude` and `/login`.
 5. Give the CLI a command per account (`alias claude-work='CLAUDE_CONFIG_DIR=~/.claude-work claude'`), or follow the active account with `alias claude='claude-switch.py exec -- claude'`.
@@ -20,7 +21,7 @@ To undo, quit the Desktop, remove the symlink, and move one account's data dir b
 
 ### Menu bar
 
-`scripts/swiftbar/claude-switch.1h.sh` is a [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin that shows the active account, switches on click, and opens a terminal on the active account. Copy it into the SwiftBar plugin folder and set `CLAUDE_SWITCH` in it to the path of `claude-switch.py` unless that is on the `PATH`. It is done when the menu lists every account and a click switches the Desktop.
+`scripts/swiftbar/claude-switch.1h.sh` is a [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin that shows the active account, switches on click, and opens a terminal on the active account. Copy it into the SwiftBar plugin folder and set `CLAUDE_SWITCH` in it to the path of `claude-switch.py` unless that is on the `PATH`. Open SwiftBar once and turn on its Launch at login preference; the menu stays absent until SwiftBar runs. It is done when the menu lists every account and a click switches the Desktop.
 
 Usage limits per account come from running the unmodified `claude` under each account's `CLAUDE_CONFIG_DIR` and reading `/usage`, or from token counts in the local transcripts.
 
