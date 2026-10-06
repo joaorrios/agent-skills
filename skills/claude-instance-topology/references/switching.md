@@ -6,14 +6,25 @@ Recipes for the patterns in `SKILL.md`. Scripts live in `scripts/` relative to t
 
 `scripts/claude-switch.py` turns the default data dir into a symlink to the active account's data dir and records the active account for the CLI. Its `use` command quits the Desktop, mirrors session records between all accounts, repoints the link, and reopens the Desktop, so run it from a terminal or the menu bar, never from inside the Desktop it quits. It quits without asking, ending any turn in progress, so switch between turns. The reopened Desktop and its Code sessions inherit the environment of whatever ran `use`: a terminal's exports, or SwiftBar's minimal `PATH`.
 
-Install it by copying `claude-switch.py` and `claude-session-mirror.py` into one directory and linking `claude-switch.py` into the `PATH` as `claude-switch`; the switcher finds the mirror script next to its own resolved path. In its configuration, give every account its own `data_dir` and its own `config_dir`, and leave `~/.claude` as the shared config dir the Desktop uses. Every account's Desktop then writes the account-bound files in `~/.claude` in turn: `.claude.json`, the cached organization policy (`policy-limits.json`, `remote-settings.json`), and synced plugins. After a switch, Code sessions can start under the previous account's cached policy until the new one is fetched, and a plain `claude` on `~/.claude` reports whichever account wrote last. Use the switcher for accounts in one organization; keep accounts in different organizations fully separate.
+Install it by copying `claude-switch.py` and `claude-session-mirror.py` into one directory and linking `claude-switch.py` into the `PATH` as `claude-switch`; the switcher finds the mirror script next to its own resolved path. In its configuration, give every account its own `data_dir` and its own `config_dir`, and leave `~/.claude` as the shared config dir the Desktop uses. Every account's Desktop then writes the account-bound files in `~/.claude` in turn: `.claude.json`, the cached organization policy (`policy-limits.json`, `remote-settings.json`), and synced plugins. After a switch, Code sessions can start under the previous account's cached policy until the new one is fetched, and a plain `claude` on `~/.claude` reports whichever account wrote last. Individual accounts have no organization policy, so this matters only when accounts belong to different organizations: keep those fully separate instead.
 
 1. Quit the Desktop and back up `~/Library/Application Support/Claude`.
 2. Run `claude-switch.py adopt <name>` for the account the Desktop is signed in to now.
    If `use` later reports that a data dir holds several partitions, list them with `claude-session-mirror.py --data-dir <data dir> --list` and set that account's `"partition"` to the full account UUID, a slash, and the start of the org UUID of the one with sessions.
 3. For each other account, run `claude-switch.py use <name>`, sign in once in the Desktop it opens, and open a Code session so the account gets its partition. Records reach an account on the first switch after that, so finish with one more `use`.
 4. For each account, run `claude-switch.py link-config <name>`, then sign in once with `CLAUDE_CONFIG_DIR=<config_dir> claude` and `/login`.
-5. Give the CLI a command per account (`alias claude-work='CLAUDE_CONFIG_DIR=~/.claude-work claude'`), or follow the active account with `alias claude='claude-switch.py exec -- claude'`.
+5. Make `claude` follow the active account with a shim: a `claude` script in its own directory, placed first in the `PATH`, that runs the real executable by absolute path (a bare `claude` would call the shim again):
+
+   ```bash
+   mkdir -p ~/.local/share/claude-switch/bin
+   printf '#!/bin/sh\nexec "$HOME/.local/bin/claude-switch" exec -- "$HOME/.local/bin/claude" "$@"\n' > ~/.local/share/claude-switch/bin/claude
+   chmod +x ~/.local/share/claude-switch/bin/claude
+   for f in ~/.zprofile ~/.zshrc; do echo 'export PATH="$HOME/.local/share/claude-switch/bin:$PATH"' >> "$f"; done
+   ```
+
+   Both files matter: tools resolve `claude` through a login shell (`~/.zprofile`), and `~/.zshrc` may prepend other directories later in an interactive one. It is in place when `zsh -lc 'command -v claude'` and `zsh -lic 'command -v claude'` both print the shim.
+
+   Every tool that finds `claude` through that `PATH` follows the menu, including orchestrators once restarted, and Claude Code updates leave the shim alone. For a fixed account per command instead, add aliases such as `alias claude-work='CLAUDE_CONFIG_DIR=~/.claude-work claude'`.
 
 Setup is complete when `use` alternates between every account without asking to sign in, each sidebar lists the other accounts' sessions, and `CLAUDE_CONFIG_DIR=<config_dir> claude auth status` shows each account's own email.
 
@@ -44,15 +55,7 @@ When linked config dirs keep separate `settings.json` files, give them the same 
 
 ## Orchestrators
 
-Tools that launch Claude Code per agent run the `claude` executable directly, so shell aliases never reach them. Select the account in the tool: one provider or profile per account setting `CLAUDE_CONFIG_DIR`, or a single one whose command is the switcher, to follow the active account. Use absolute paths, since the tool's `PATH` may differ from the shell's. In Paseo, override the bundled provider in `~/.paseo/config.json` and run `paseo reload`; no daemon restart is needed:
-
-```json
-{ "agents": { "providers": { "claude": {
-  "command": ["/Users/<you>/.local/bin/claude-switch", "exec", "--", "/Users/<you>/.local/bin/claude"]
-} } } }
-```
-
-Agents already running keep the account they started with. It is working when `paseo provider diagnostic claude` shows the active account's config dir and email.
+Tools that launch Claude Code per agent, such as Paseo, run the `claude` executable directly, so shell aliases never reach them. With the shim from step 5, they follow the active account with no change of their own once restarted, provided their `PATH` comes from the same login shell; confirm which `claude` they resolve (in Paseo, `paseo provider diagnostic claude`). Otherwise select the account in the tool: one provider or profile per account setting `CLAUDE_CONFIG_DIR`, or a provider command of `claude-switch.py exec -- <absolute path to claude>`. Agents already running keep the account they started with. It is working when a new agent reports the active account's config dir and email.
 
 ## Second CLI account through a token
 
