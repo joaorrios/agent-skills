@@ -48,6 +48,19 @@ check "use records the CLI account" "$(run env)" "export CLAUDE_CONFIG_DIR=$T/cf
 check "exec runs with the active config dir" "$(run exec -- sh -c 'echo $CLAUDE_CONFIG_DIR')" "$T/cfg-b"
 check "exec honours --account" "$(run exec --account a -- sh -c 'echo $CLAUDE_CONFIG_DIR')" "$T/shared"
 
+python3 - "$T/config.json" "$T" <<'PY2'
+import json, sys
+path, root = sys.argv[1:]
+config = json.load(open(path))
+config["accounts"]["c"] = {"data_dir": f"{root}/Claude-C", "config_dir": f"{root}/cfg-c"}
+json.dump(config, open(path, "w"))
+PY2
+mkdir -p "$T/Claude-C/claude-code-sessions/acct-c/org"
+echo '{"cliSessionId":"2","lastActivityAt":9,"title":"from c"}' > "$T/Claude-C/claude-code-sessions/acct-c/org/local_y.json"
+run use c --no-open >/dev/null
+check "a third account becomes active" "$(readlink "$T/Claude")" "$T/Claude-C"
+check "three accounts mirror into each other" "$(ls "$T/Claude-A/claude-code-sessions/acct-a/org" "$T/Claude-B/claude-code-sessions/acct-b/org" "$T/Claude-C/claude-code-sessions/acct-c/org" | grep -c local_)" "6"
+
 run link-config b >/dev/null
 check "link-config links shared files" "$(readlink "$T/cfg-b/CLAUDE.md")" "$T/shared/CLAUDE.md"
 check "link-config links shared history" "$(readlink "$T/cfg-b/projects")" "$T/shared/projects"
