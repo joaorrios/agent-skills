@@ -1,7 +1,5 @@
 # Clean up instances
 
-Use when Claude instances, launchers, aliases, scripts, or directories have accumulated, or when retiring an instance.
-
 ## 1. Inventory
 
 Build the topology map from `SKILL.md`, then extend it with every artifact that can belong to an instance:
@@ -32,7 +30,7 @@ This step is complete when the user has agreed to a decision for every artifact.
 Archive before removing. Retire an instance in this order:
 
 1. Quit it.
-2. End its logins natively: run `/logout` under its config dir (`CLAUDE_CONFIG_DIR=… claude`), which removes and revokes the CLI credential, and sign out of its Desktop data dir from the app.
+2. End its logins through the native flows: run `/logout` under its config dir (`CLAUDE_CONFIG_DIR=… claude`), which removes and revokes the CLI credential, and sign out of its Desktop data dir from the app.
 3. Move any transcripts worth keeping into the config dir that stays. Move only sessions whose ID is not already there, since duplicate copies break resume by ID.
 4. Remove its launcher, aliases, and scripts.
 5. Archive its config and data dirs with `tar`, then delete them once the user confirms nothing is missing.
