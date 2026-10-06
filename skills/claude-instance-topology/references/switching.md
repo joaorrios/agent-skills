@@ -44,7 +44,15 @@ When linked config dirs keep separate `settings.json` files, give them the same 
 
 ## Orchestrators
 
-Tools that launch Claude Code per agent, such as Paseo, select the account through their per-agent environment: one provider or profile per account setting `CLAUDE_CONFIG_DIR`, or a single one whose command is `claude-switch.py exec -- claude` to follow the active account. Agents already running keep the account they started with. The single-command form is untested; it is verified when a new agent's `/status` shows the active account.
+Tools that launch Claude Code per agent run the `claude` executable directly, so shell aliases never reach them. Select the account in the tool: one provider or profile per account setting `CLAUDE_CONFIG_DIR`, or a single one whose command is the switcher, to follow the active account. Use absolute paths, since the tool's `PATH` may differ from the shell's. In Paseo, override the bundled provider in `~/.paseo/config.json` and run `paseo reload`; no daemon restart is needed:
+
+```json
+{ "agents": { "providers": { "claude": {
+  "command": ["/Users/<you>/.local/bin/claude-switch", "exec", "--", "/Users/<you>/.local/bin/claude"]
+} } } }
+```
+
+Agents already running keep the account they started with. It is working when `paseo provider diagnostic claude` shows the active account's config dir and email.
 
 ## Second CLI account through a token
 
