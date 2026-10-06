@@ -30,10 +30,10 @@ A topology changes where configuration and history live, never how authenticatio
 | Desktop sign-in, `/login`, `/logout` in the unmodified apps | The way every login is made and retired. |
 | Choosing the config dir or data dir through an alias, launcher, symlink, or another tool's per-agent environment, including relocating a whole data dir | The documented way to keep several accounts. |
 | `claude setup-token` with `CLAUDE_CODE_OAUTH_TOKEN`, in Claude Code itself | Documented for non-interactive environments. It cannot use claude.ai connectors or Remote Control. |
-| Reading, extracting, or transferring stored credentials between accounts or machines (Keychain entries, `.credentials.json`, the account fields of `.claude.json`) | Outside the native flows. Leave them where the flows put them. |
+| Reading, extracting, or transferring the credentials the apps store, between accounts or machines (Keychain entries, `.credentials.json`, the account fields of `.claude.json`) | Outside the native flows. Leave them where the flows put them. |
 | Running OAuth or token exchanges outside the apps, or using subscription credentials in tools that handle the credential themselves | Prohibited by Anthropic's terms. |
 
-When a requested setup needs anything outside the first three rows, say so and offer the nearest native alternative. The current rules are in the legal and compliance page listed in `references/sources.md`.
+When a requested setup needs anything outside the first three rows, say so and offer the nearest native alternative. These rules cover credentials only; whether several accounts or seats may be used by one person, and how usage limits apply to them, is set by the consumer or commercial terms the accounts are under, so have the user confirm that before setting up switching. The current rules are in the legal and compliance page listed in `references/sources.md`.
 
 ## Map the current topology
 
@@ -50,7 +50,7 @@ The map is done when each instance has a known data dir, config dir, account, an
 
 | Want | Pattern | Result |
 |---|---|---|
-| Accounts that share configuration and history, one Desktop open at a time, switched in one click or from the menu bar | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch.py` | Every account stays signed in. The unmodified `Claude.app`, its Dock icon, updates, and links open the active account. Sidebars mirrored on each switch. |
+| Accounts that share configuration and history, one Desktop open at a time, switched in one click or from the menu bar | **Switcher**: a data dir per account behind the default data dir as a symlink, a CLI config dir per account linked to the shared one, and `claude-switch.py` | Every account stays signed in. The unmodified `Claude.app`, its Dock icon, updates, and links open the active account. Sidebars mirrored on each switch. All accounts' Desktops share one config dir, so it suits accounts in one organization. |
 | A primary account plus an alternate that also sees the primary's sessions | The switcher, or the mirror script with `--mode primary` | The alternate lists the primary's sessions; the primary keeps only its own. |
 | Accounts in one Desktop, switched by hand | Sign out and in within the app | Each account keeps its own sidebar in the same data dir; signing in again on every switch. |
 | Accounts open side by side | A wrapper per account with its own `--user-data-dir`, on the shared config dir | Separate sidebars, mirrored only while all are quit. The shared `.claude.json` names whichever account wrote last, so keep CLI logins out of that config dir. |
@@ -68,7 +68,7 @@ This step is complete when the user has agreed on a pattern and every account ha
 ### What can be shared
 
 - **Shareable**: `CLAUDE.md`, `settings.json`, `skills/`, `agents/`, `commands/`, `output-styles/`, `hooks/`, and history: `projects/` (transcripts and auto memory), `file-history/`, `history.jsonl`, `plans/`. Symlinks survive logins and settings writes.
-- **Account-bound**: `.claude.json` (account identity, personal MCP servers, folder trust; it is `~/.claude.json` for the default config dir and inside any other config dir), credentials, `policy-limits.json`, `remote-settings.json`, `plugins/` (its `synced/` folder is per account), and caches. A shared `.claude.json` makes a config dir report another account, and the Desktop writes its signed-in account into its config dir's `.claude.json`.
+- **Account-bound**: `.claude.json` (account identity, personal MCP servers, folder trust; it is `~/.claude.json` for the default config dir and inside any other config dir), credentials, `policy-limits.json`, `remote-settings.json`, `plugins/` (its `synced/` folder is per account; install plugins in each config dir), and caches. A shared `.claude.json` makes a config dir report another account, and the Desktop writes its signed-in account into its config dir's `.claude.json`.
 - **Desktop sidebars**: records live under `claude-code-sessions/<account>/<org>/`, one partition per account, so each account lists only its own sessions until they are mirrored.
 
 ### Naming

@@ -4,9 +4,9 @@ Recipes for the patterns in `SKILL.md`. Scripts live in `scripts/` relative to t
 
 ## Switcher
 
-`scripts/claude-switch.py` turns the default data dir into a symlink to the active account's data dir and records the active account for the CLI. Its `use` command quits the Desktop, mirrors session records between all accounts, repoints the link, and reopens the Desktop, so run it from a terminal or the menu bar, never from inside the Desktop it quits.
+`scripts/claude-switch.py` turns the default data dir into a symlink to the active account's data dir and records the active account for the CLI. Its `use` command quits the Desktop, mirrors session records between all accounts, repoints the link, and reopens the Desktop, so run it from a terminal or the menu bar, never from inside the Desktop it quits. It quits without asking, ending any turn in progress, so switch between turns. The reopened Desktop and its Code sessions inherit the environment of whatever ran `use`: a terminal's exports, or SwiftBar's minimal `PATH`.
 
-Install it by copying `claude-switch.py` and `claude-session-mirror.py` into one directory and linking `claude-switch.py` into the `PATH` as `claude-switch`; the switcher finds the mirror script next to its own resolved path. In its configuration, give every account its own `data_dir` and its own `config_dir`, and leave `~/.claude` as the shared config dir the Desktop uses.
+Install it by copying `claude-switch.py` and `claude-session-mirror.py` into one directory and linking `claude-switch.py` into the `PATH` as `claude-switch`; the switcher finds the mirror script next to its own resolved path. In its configuration, give every account its own `data_dir` and its own `config_dir`, and leave `~/.claude` as the shared config dir the Desktop uses. Every account's Desktop then writes the account-bound files in `~/.claude` in turn: `.claude.json`, the cached organization policy (`policy-limits.json`, `remote-settings.json`), and synced plugins. After a switch, Code sessions can start under the previous account's cached policy until the new one is fetched, and a plain `claude` on `~/.claude` reports whichever account wrote last. Use the switcher for accounts in one organization; keep accounts in different organizations fully separate.
 
 1. Quit the Desktop and back up `~/Library/Application Support/Claude`.
 2. Run `claude-switch.py adopt <name>` for the account the Desktop is signed in to now.
@@ -29,7 +29,8 @@ Usage limits per account come from running the unmodified `claude` under each ac
 
 `scripts/claude-session-mirror.py` copies Desktop session records between account partitions, in one data dir or across several. `claude-switch.py use` runs it for all accounts; run it directly for side-by-side wrappers or a primary-and-alternate setup. Before mirroring, weigh:
 
-- **Deletions do not propagate**: a session deleted in one account returns from another on the next mirror. Archive it instead, in every account unless the next mirror shows the archive reached them.
+- **Whole records travel**: the most recently active copy of a record replaces the others, with its title, archive state, model and effort, permission mode, and "always allow" grants. A grant made in one account applies in the others, and a rename or archive in one account is undone when another account's copy has newer activity.
+- **Deletions do not propagate**: a session deleted in one account returns from another on the next mirror. Archive or rename it in every account instead.
 - **Organization policy**: mirroring a work organization's sessions into a personal account copies their titles and makes their history reachable there.
 - **Connectors**: a record carries its account's claude.ai connector list. Whether the other account uses or replaces it is unverified.
 
@@ -54,4 +55,4 @@ security add-generic-password -a "$USER" -s claude-personal-token -w   # paste t
 alias claude-personal='CLAUDE_CODE_OAUTH_TOKEN=$(security find-generic-password -a "$USER" -s claude-personal-token -w) claude'
 ```
 
-It is working when `/status` under the alias shows the second account. The token makes model requests only: claude.ai connectors and Remote Control are unavailable, and `--bare` mode ignores it.
+It is working when `/status` under the alias shows the second account. Prefer a linked config dir with its own `/login` for interactive use; the token suits scripts and other non-interactive runs, and every process the CLI starts, including hooks and MCP servers, inherits it. The token makes model requests only: claude.ai connectors and Remote Control are unavailable, and `--bare` mode ignores it.
