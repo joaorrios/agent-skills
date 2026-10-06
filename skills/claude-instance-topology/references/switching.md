@@ -6,16 +6,16 @@ Recipes for the patterns in `SKILL.md`. Scripts live in `scripts/` relative to t
 
 `scripts/claude-switch.py` turns the default data dir into a symlink to the active account's data dir and records the active account for the CLI. Its `use` command quits the Desktop, mirrors session records between all accounts, repoints the link, and reopens the Desktop, so run it from a terminal or the menu bar, never from inside the Desktop it quits.
 
-In its configuration, give every account its own `data_dir` and its own `config_dir`, and leave `~/.claude` as the shared config dir the Desktop uses.
+Install it by copying `claude-switch.py` and `claude-session-mirror.py` into one directory and linking `claude-switch.py` into the `PATH` as `claude-switch`; the switcher finds the mirror script next to its own resolved path. In its configuration, give every account its own `data_dir` and its own `config_dir`, and leave `~/.claude` as the shared config dir the Desktop uses.
 
 1. Quit the Desktop and back up `~/Library/Application Support/Claude`.
 2. Run `claude-switch.py adopt <name>` for the account the Desktop is signed in to now.
    If `use` later reports that a data dir holds several partitions, list them with `claude-session-mirror.py --data-dir <data dir> --list` and set that account's `"partition"` to the full account UUID, a slash, and the start of the org UUID of the one with sessions.
-3. For each other account, run `claude-switch.py use <name>` and sign in once in the Desktop it opens.
+3. For each other account, run `claude-switch.py use <name>`, sign in once in the Desktop it opens, and open a Code session so the account gets its partition. Records reach an account on the first switch after that, so finish with one more `use`.
 4. For each account, run `claude-switch.py link-config <name>`, then sign in once with `CLAUDE_CONFIG_DIR=<config_dir> claude` and `/login`.
 5. Give the CLI a command per account (`alias claude-work='CLAUDE_CONFIG_DIR=~/.claude-work claude'`), or follow the active account with `alias claude='claude-switch.py exec -- claude'`.
 
-Setup is complete when `use` alternates between every account without asking to sign in, each sidebar lists the other accounts' sessions, and `/status` in each CLI command shows its own account.
+Setup is complete when `use` alternates between every account without asking to sign in, each sidebar lists the other accounts' sessions, and `CLAUDE_CONFIG_DIR=<config_dir> claude auth status` shows each account's own email.
 
 To undo, quit the Desktop, remove the symlink, and move one account's data dir back to `~/Library/Application Support/Claude`.
 
