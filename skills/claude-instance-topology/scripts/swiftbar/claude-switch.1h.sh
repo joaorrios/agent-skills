@@ -13,7 +13,6 @@ if [ -z "$SWITCH" ]; then
   exit 0
 fi
 
-"$SWITCH" sync-launchd >/dev/null 2>&1  # restores the Dock's account after a login
 STATUS=$("$SWITCH" status --json 2>&1) || { echo "Claude !"; echo "---"; echo "$STATUS" | head -3; exit 0; }
 
 /usr/bin/python3 - "$SWITCH" "$STATUS" <<'PY'
