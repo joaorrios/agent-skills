@@ -5,7 +5,7 @@ Portable skills for coding agents.
 ## Skills
 
 - **approach-review** — challenges a proposed technical approach before implementation.
-- **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share login, configuration, and session history.
+- **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share login, configuration, and session history, including switching between accounts that share one configuration and history.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **unhobble** — updates and simplifies context engineering for new, stronger models.
@@ -48,7 +48,7 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 
 `unhobble` requires access to read and edit the target material and an independent reviewer.
 
-`claude-instance-topology` targets macOS with Claude Desktop and/or the Claude Code CLI. Its icon script needs Python 3 and Pillow. It changes only where configuration and history live: every login goes through Anthropic's own sign-in flows in the unmodified apps, and it never reads, copies, or alters stored credentials, in line with Anthropic's [terms for credential use](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
+`claude-instance-topology` targets macOS with Claude Desktop and/or the Claude Code CLI. Its scripts need Python 3; the icon script also needs Pillow, and the menu bar plugin needs SwiftBar. It changes only where configuration and history live: every login goes through Anthropic's own sign-in flows in the unmodified apps, and it never reads, copies, or alters stored credentials, in line with Anthropic's [terms for credential use](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
 
 ## Technical review independence
 
