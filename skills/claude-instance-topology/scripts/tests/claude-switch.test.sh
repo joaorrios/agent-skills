@@ -31,7 +31,7 @@ cat > "$T/config.json" <<EOF
   }
 }
 EOF
-export CLAUDE_SWITCH_CONFIG="$T/config.json"
+export CLAUDE_SWITCH_CONFIG="$T/config.json" CLAUDE_INSTANCE_BACKUP_DIR="$T/backups"
 run() { python3 -B "$SWITCH" "$@"; }
 
 run adopt a >/dev/null
@@ -61,11 +61,21 @@ run use c --no-open >/dev/null
 check "a third account becomes active" "$(readlink "$T/Claude")" "$T/Claude-C"
 check "three accounts mirror into each other" "$(ls "$T/Claude-A/claude-code-sessions/acct-a/org" "$T/Claude-B/claude-code-sessions/acct-b/org" "$T/Claude-C/claude-code-sessions/acct-c/org" | grep -c local_)" "6"
 
+check "backups stay in the test directory" "$(ls "$T/backups" | grep -c records-mirror)" "5"
+
 run link-config b >/dev/null
 check "link-config links shared files" "$(readlink "$T/cfg-b/CLAUDE.md")" "$T/shared/CLAUDE.md"
 check "link-config links shared history" "$(readlink "$T/cfg-b/projects")" "$T/shared/projects"
 check "link-config leaves account state alone" "$( [ -e "$T/cfg-b/.claude.json" ] && echo linked || echo absent)" "absent"
 if run link-config a >/dev/null 2>&1; then check "link-config refuses the shared dir itself" "ran" "refused"; else check "link-config refuses the shared dir itself" "refused" "refused"; fi
+
+python3 - "$T/config.json" <<'PY2'
+import json, sys
+config = json.load(open(sys.argv[1]))
+config["accounts"]["bad name"] = config["accounts"]["a"]
+json.dump(config, open(sys.argv[1], "w"))
+PY2
+if run status >/dev/null 2>&1; then check "rejects account names SwiftBar cannot pass" "ran" "refused"; else check "rejects account names SwiftBar cannot pass" "refused" "refused"; fi
 
 echo
 if [ "$failures" -gt 0 ]; then echo "$failures failing assertion(s)"; exit 1; fi

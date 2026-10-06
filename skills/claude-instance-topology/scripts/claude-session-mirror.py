@@ -31,8 +31,9 @@ import time
 from pathlib import Path
 
 DEFAULT_DATA_DIR = Path.home() / "Library/Application Support/Claude"
-BACKUP_DIR = Path.home() / ".claude-instance-backups"
-MAIN_PROCESS = re.compile(r"^/\S*/Contents/MacOS/Claude( |$)")
+BACKUP_DIR = Path(os.environ.get("CLAUDE_INSTANCE_BACKUP_DIR", Path.home() / ".claude-instance-backups")).expanduser()
+BACKUP_KEEP = 20
+MAIN_PROCESS = re.compile(r"^/.+?\.app/Contents/MacOS/Claude( |$)")
 
 
 def fail(message):
@@ -122,11 +123,15 @@ def instance_running(data_dir):
 
 
 def backup(store):
-    BACKUP_DIR.mkdir(exist_ok=True)
-    stamp = time.strftime("%Y%m%d-%H%M%S")
-    target = BACKUP_DIR / f"records-mirror-{stamp}-{store.parent.name.replace(' ', '_')}.tgz"
+    """Archive a session store, keeping the newest BACKUP_KEEP archives per data dir."""
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    label = store.parent.name.replace(" ", "_")
+    stamp = time.strftime("%Y%m%d-%H%M%S") + f"-{time.time_ns() % 10**9:09d}"
+    target = BACKUP_DIR / f"records-mirror-{label}-{stamp}.tgz"
     with tarfile.open(target, "w:gz") as archive:
         archive.add(store, arcname=store.name)
+    for old in sorted(BACKUP_DIR.glob(f"records-mirror-{label}-*.tgz"))[:-BACKUP_KEEP]:
+        old.unlink()
     return target
 
 
