@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recolor a Claude wrapper .app icon so concurrent instances are distinguishable.
+"""Recolor a Claude wrapper .app icon so Finder, Spotlight, and Launchpad tell wrappers apart.
 
 Samples the two-tone palette from the live /Applications/Claude.app artwork on
 every run, so an upstream art change carries through instead of being remapped
@@ -9,9 +9,11 @@ from it.
     claude-wrapper-icon.py --app "/Applications/Claude Personal.app" --variant graphite
     claude-wrapper-icon.py --app "/Applications/Claude Personal.app" --undo
 
-Pillow is needed to apply a variant; nothing but the standard library is needed
-to import this module, so the pure mapping below stays testable without it.
+Applying a variant needs Pillow.
 """
+
+# Only the standard library is needed to import this module, so the pure
+# mapping stays testable without Pillow.
 
 import argparse
 import plistlib

@@ -2,7 +2,7 @@
 """Switch which Claude account the Desktop app and the CLI use.
 
 Each account keeps its own Desktop data dir and CLI config dir, each signed in
-once through Anthropic's own flow. Switching changes which directory is used,
+once through a native flow. Switching changes which directory is used,
 never a credential: the default Desktop data dir becomes a symlink to the
 active account's data dir, and the CLI reads the active account's config dir.
 
