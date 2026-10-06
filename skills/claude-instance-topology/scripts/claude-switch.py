@@ -37,6 +37,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -47,10 +48,12 @@ STATE_FILE = CONFIG_FILE.with_name("active")
 DEFAULT_DATA_DIR = Path.home() / "Library/Application Support/Claude"
 # Configuration and history an account can share. Account-bound state
 # (.claude.json, credentials, policy and remote settings, caches) stays per dir.
+# plugins/ is left out: its synced/ folder holds account-synced plugins.
 SHAREABLE = (
     "CLAUDE.md", "settings.json", "skills", "agents", "commands", "output-styles",
-    "plugins", "hooks", "projects", "file-history", "history.jsonl", "plans",
+    "hooks", "projects", "file-history", "history.jsonl", "plans",
 )
+ACCOUNT_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def fail(message):
@@ -78,6 +81,8 @@ def load_config():
     if not accounts:
         fail(f"{CONFIG_FILE} defines no accounts")
     for name, account in accounts.items():
+        if not ACCOUNT_NAME.match(name):
+            fail(f"account name {name!r} may use only letters, digits, '-' and '_'")
         for key in ("data_dir", "config_dir"):
             if key not in account:
                 fail(f"account {name!r} needs {key!r}")
@@ -151,11 +156,15 @@ def partition_of(name, entry, mirror):
     fail(f"account {name!r}: its data dir holds {len(found)} partitions; set \"partition\" in {CONFIG_FILE}")
 
 
-def mirror_sessions(config, mirror):
+def mirror_plan(config, mirror):
+    """Partitions and copies for every account, resolved before anything changes."""
     chosen = [p for name, entry in config["accounts"].items() if (p := partition_of(name, entry, mirror))]
     if len(chosen) < 2:
-        return
-    copies = mirror.plan(chosen, "newest")
+        return chosen, []
+    return chosen, mirror.plan(chosen, "newest")
+
+
+def apply_mirror(mirror, chosen, copies):
     if not copies:
         return
     for store in {p.parent.parent for p in chosen}:
@@ -198,12 +207,17 @@ def cmd_use(config, mirror, args):
     link = link_path(config)
     if link.exists() and not link.is_symlink():
         fail(f"{link} is a real directory; run adopt first")
-    data_dir.mkdir(parents=True, exist_ok=True)
-    was_running = desktop_running(config, mirror)
-    if was_running:
+    mirroring = config.get("mirror", True) and not args.no_mirror
+    if mirroring:
+        mirror_plan(config, mirror)  # fail on ambiguous partitions before quitting anything
+    if desktop_running(config, mirror):
         quit_desktop(config, mirror)
-    if config.get("mirror", True) and not args.no_mirror:
-        mirror_sessions(config, mirror)
+    if mirroring:
+        for name, entry in config["accounts"].items():
+            if mirror.instance_running(expand(entry["data_dir"])):
+                fail(f"a Claude instance is open on {name!r}'s data dir; quit it and retry")
+        apply_mirror(mirror, *mirror_plan(config, mirror))
+    data_dir.mkdir(parents=True, exist_ok=True)
     temporary = link.with_name(link.name + ".switching")
     temporary.unlink(missing_ok=True)
     temporary.symlink_to(data_dir)

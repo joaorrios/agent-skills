@@ -33,7 +33,7 @@ target_running() {
     elif [ "$DD" = "$DEFAULT_DD" ]; then
       hits=1
     fi
-  done < <(ps -axo command= | grep -E '^/[^ ]*/Contents/MacOS/Claude( |$)' | grep -v -- '--type=' || true)
+  done < <(ps -axo command= | grep -E '^/.+\.app/Contents/MacOS/Claude( |$)' | grep -v -- '--type=' || true)
   [ -n "$hits" ]
 }
 if target_running; then echo "Quit the target instance first"; exit 1; fi
@@ -53,6 +53,7 @@ else
 fi
 
 # 2. Match retention so the new config dir does not sweep shared transcripts sooner.
+#    Skip when settings.json will be linked from the shared config dir instead.
 python3 - "$OLD_CONFIG_DIR/settings.json" "$NEW_CONFIG_DIR/settings.json" <<'PY'
 import json, os, sys
 old_path, new_path = sys.argv[1:]
