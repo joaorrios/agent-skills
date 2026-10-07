@@ -1,6 +1,6 @@
 ---
 name: claude-instance-topology
-description: Instance topology for Claude Desktop and the Claude Code CLI on macOS: which accounts, configuration, and history each instance shares, and how to change it safely. Use when adding or switching Claude accounts; sharing skills, CLAUDE.md, or history across accounts; telling instances apart; cleaning up leftover instances; recovering a Desktop session that shows "Session not found on disk"; or before editing a Desktop session store.
+description: 'Instance topology for Claude Desktop and the Claude Code CLI on macOS: which accounts, configuration, and history each instance shares, and how to change it safely. Use when adding or switching Claude accounts; sharing skills, CLAUDE.md, or history across accounts; telling instances apart; cleaning up leftover instances; recovering a Desktop session that shows "Session not found on disk"; or before editing a Desktop session store.'
 license: MIT
 compatibility: macOS with Claude Desktop and/or the Claude Code CLI. Scripts need Python 3; the icon script also needs Pillow, and the menu bar plugin needs SwiftBar.
 ---
