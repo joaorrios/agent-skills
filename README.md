@@ -10,6 +10,7 @@ Portable skills for coding agents.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **project-coordinator** — keeps one persistent coordinator per project that delegates to workers, verifies their results, and survives session changes and context compaction.
+- **prompt-writing**: writes prompts that drive a model, from system prompts and subagent briefs to task prompts and tool descriptions.
 - **unhobble** — updates and simplifies context engineering for new, stronger models.
 
 Each skill is independently installable and self-contained within its folder.
@@ -50,6 +51,9 @@ skills/
       openai.yaml
     references/
     scripts/
+  prompt-writing/
+    SKILL.md
+    references/
   unhobble/
     SKILL.md
 ```
