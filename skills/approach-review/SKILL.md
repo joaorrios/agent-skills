@@ -34,9 +34,9 @@ Consume every substantive finding individually.
 
 - **change** — revise the approach to address the finding.
 - **disagree** — keep the approach and give a specific technical reason supported by evidence.
-- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, or needs a product, scope, or priority choice the author does not own. Ask in chat, wait for the answer, then apply it. An open question, TODO, or "not yet approved" note written into an artifact leaves the finding unresolved.
+- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, settle an open question, or needs a product, scope, or priority choice the author does not own. Ask in chat, wait for the answer, then apply it: `change` the approach, or record the answer as the disposition when the user keeps it as is. An open question, TODO, or "not yet approved" note written into an artifact leaves the finding unresolved.
 
-A user decision is outside the author's `disagree`; a contradicted or missing intent entry is resolved by `change` or by asking the user.
+A user decision is outside the author's `disagree`.
 
 A missing requirement is not a reason to dismiss a technical defect. If a finding exposes an omission in the written intent, update the affected artifact rather than using its silence as justification.
 
@@ -44,4 +44,4 @@ Do not defer, rank away, or silently drop substantive findings. After material r
 
 ## Done
 
-The review is complete when an independent reviewer has inspected the approach and every substantive finding has an explicit `change`, an evidenced `disagree`, or an applied answer from the user.
+The review is complete when an independent reviewer has inspected the approach and every substantive finding has an explicit `change`, an evidenced `disagree`, or an applied answer from the user. When the intent check runs, it also requires a completed ledger pass.

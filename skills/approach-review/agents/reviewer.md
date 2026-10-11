@@ -22,8 +22,12 @@ When you receive an intent ledger after your technical findings, check every ent
 - **missing** — the approach is silent on it.
 - **contradicted** — the approach does otherwise; cite both.
 - **handed off** — another change, issue, or doc explicitly takes it; name that owner.
+- **out of scope** — it bears on a later stage, not on the approach; say why.
+- **unresolved** — a reference entry whose named source you cannot reach.
 
-Resolve a reference entry against its named source first; report it as unresolved when the source is unreachable. For an open question, report whether the approach settles it without the user.
+Resolve a reference entry against its named source first. An open question the approach settles without the user is contradicted.
+
+Report the ledger pass as its own section listing every entry with its status and evidence, even when you have no technical findings.
 
 ## Report
 
