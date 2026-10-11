@@ -25,6 +25,7 @@ Consume every substantive finding individually.
 
 - **fix** — change the implementation to address the finding.
 - **disagree** — leave it unchanged and give a specific technical reason supported by evidence.
+- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, recorded in the spec when one exists or stated in conversation, or needs a product, scope, or priority choice the implementer does not own. Ask in chat, wait for the answer, then apply it as `fix`. A TODO, code comment, or "not yet approved" note leaves the finding unresolved.
 
 A missing requirement is not a reason to dismiss a technical defect. Written intent and prior technical decisions are context, not authority over correctness.
 
@@ -32,4 +33,4 @@ Do not defer, rank away, or silently drop substantive findings. After material f
 
 ## Done
 
-The review is complete when an independent reviewer has inspected the implementation and every substantive finding has an explicit `fix` or evidenced `disagree` disposition.
+The review is complete when an independent reviewer has inspected the implementation and every substantive finding has an explicit `fix` or evidenced `disagree` disposition. Findings sent to the user count only once the user has answered and the answer is applied.
