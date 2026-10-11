@@ -5,6 +5,7 @@ Portable skills for coding agents.
 ## Skills
 
 - **approach-review** — challenges a proposed technical approach before implementation.
+- **auditing-disk-space**: finds where disk space went on a Mac with measured evidence, then removes only the paths the user names.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
@@ -29,6 +30,8 @@ skills/
     SKILL.md
     agents/
       reviewer.md
+  auditing-disk-space/
+    SKILL.md
   claude-instance-topology/
     SKILL.md
     references/
@@ -54,6 +57,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
 `project-coordinator` is invoked by the user only. It runs in Claude Code or Codex inside a git repository, and its reload hook needs a POSIX shell. Workers that outlive the coordinator's session need a runtime such as Paseo. In Cursor, Cursor Projects covers the same need.
+
+`auditing-disk-space` targets macOS. It measures completely only when the app or terminal running the agent has Full Disk Access.
 
 `unhobble` requires access to read and edit the target material and an independent reviewer.
 
