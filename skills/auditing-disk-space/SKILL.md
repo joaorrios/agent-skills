@@ -1,6 +1,6 @@
 ---
 name: auditing-disk-space
-description: Read-only disk space audit for macOS that finds where space went with measured evidence, then removes only the paths the user names. Use when a Mac is low on space or warns that its disk is full, or when free space keeps shrinking after a cleanup that could not explain it.
+description: Disk space audit and cleanup for macOS. Finds where space went with measured evidence, then removes only the paths the user explicitly authorizes. Use when a Mac is low on space or warns that its disk is full, or when free space keeps shrinking after a cleanup that could not explain it.
 license: MIT
 compatibility: macOS. Full Disk Access for the app or terminal that runs the agent; without it, protected folders go unmeasured.
 ---

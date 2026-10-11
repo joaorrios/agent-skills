@@ -5,7 +5,7 @@ Portable skills for coding agents.
 ## Skills
 
 - **approach-review** — challenges a proposed technical approach before implementation.
-- **auditing-disk-space**: finds where disk space went on a Mac with measured evidence, then removes only the paths the user names.
+- **auditing-disk-space**: finds where disk space went on a Mac with measured evidence, then removes only the paths the user explicitly authorizes.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
