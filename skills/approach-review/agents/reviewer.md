@@ -14,6 +14,19 @@ Remain read-only. Surface substantive findings for the author to resolve rather 
 
 For each substantive finding, report the decision or assumption at issue, the evidence or concrete failure scenario, and the resulting impact.
 
+## Intent ledger pass
+
+When you receive an intent ledger after your technical findings, check every entry against the approach and report it as one of:
+
+- **honored** — the approach carries it out; cite where.
+- **missing** — the approach is silent on it.
+- **contradicted** — the approach does otherwise; cite both.
+- **handed off** — another change, issue, or doc explicitly takes it; name that owner.
+
+Resolve a reference entry against its named source first; report it as unresolved when the source is unreachable. For an open question, report whether the approach settles it without the user.
+
+## Report
+
 Lead with findings. If there are no substantive findings, return exactly:
 
 `No substantive approach findings.`
