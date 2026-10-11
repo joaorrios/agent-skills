@@ -19,12 +19,14 @@ Keep the briefing unprimed. Give the reviewer the proposed approach, its reposit
 
 The reviewer owns investigation and may inspect the surrounding system as needed.
 
-## Intent check (optional)
+## Intent check
 
-Run it when the approach was shaped in conversations with the user and their transcripts are available.
+Run it whenever the approach was shaped in conversations with the user, including the current session, and their transcripts can be passed as files or exports.
 
 1. Dispatch a separate extractor subagent with `agents/intent-extractor.md` and only the transcripts. Keep the approach out of its briefing so its ledger stays independent of the artifact.
-2. After the reviewer returns its technical findings, send it the ledger as its final pass. The ledger is evidence of user intent; send it without commentary.
+2. After the reviewer returns its technical findings, send it the ledger as its final pass. When the runtime cannot continue that reviewer, dispatch a fresh one with `agents/reviewer.md`, the approach, and the ledger for this pass alone. The ledger is evidence of user intent; send it without commentary.
+
+Every ledger entry reported as anything other than honored or out of scope is a substantive finding. Confirm that a named owner exists for each handed-off entry.
 
 ## Resolve
 
