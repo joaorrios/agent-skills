@@ -25,9 +25,7 @@ Consume every substantive finding individually.
 
 - **fix** — change the implementation to address the finding.
 - **disagree** — leave it unchanged and give a specific technical reason supported by evidence.
-- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, recorded in the spec when one exists or stated in conversation, or needs a product, scope, or priority choice the implementer does not own. Ask in chat, wait for the answer, then apply it: `fix` the implementation, or record the answer as the disposition when the user keeps it as is. A TODO, code comment, or "not yet approved" note leaves the finding unresolved.
-
-A user decision is outside the implementer's `disagree`.
+- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, recorded in the spec when one exists or stated in conversation, or needs a product, scope, or priority choice the implementer does not own. Only the user can override a user decision. Ask in chat, wait for the answer, then apply it: `fix` the implementation, or record the answer as the disposition when the user keeps it as is. A TODO, code comment, or "not yet approved" note leaves the finding unresolved.
 
 A missing requirement is not a reason to dismiss a technical defect. Written intent and prior technical decisions are context, not authority over correctness.
 

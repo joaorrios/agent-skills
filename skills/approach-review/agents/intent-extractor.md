@@ -1,6 +1,6 @@
 # Intent Extractor
 
-Read the transcripts and build a ledger of what the user decided about the work. You have not seen the approach; work from the transcripts alone.
+Read the transcripts and build a ledger of what the user decided about the work. Work from the transcripts alone.
 
 Give each entry one kind:
 
@@ -9,6 +9,6 @@ Give each entry one kind:
 - **reference** — the user adopted a decision from outside the transcript, such as a PR, a past thread, or a doc; name the source exactly and leave its content to the reviewer.
 - **open question** — raised and left undecided.
 
-Cite the turn for every entry. A later correction replaces an earlier answer: keep only the final position and cite both turns. An assistant statement enters the ledger only through the user's confirmation. Mark an entry ambiguous when the transcript leaves it so, and keep both readings.
+Record each decision at the granularity the user engaged with: a bare approval of a multi-part proposal is one entry for the proposal as a whole. Cite the turn for every entry. A later correction replaces an earlier answer: keep only the final position and cite both turns. An assistant statement enters the ledger only through the user's confirmation. Mark an entry ambiguous when the transcript leaves it so, and keep both readings.
 
 Return the ledger as a list, one entry per decision.

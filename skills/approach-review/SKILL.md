@@ -24,9 +24,9 @@ The reviewer owns investigation and may inspect the surrounding system as needed
 Run it whenever the approach was shaped in conversations with the user, including the current session, and their transcripts can be passed as files or exports.
 
 1. Dispatch a separate extractor subagent with `agents/intent-extractor.md` and only the transcripts. Keep the approach out of its briefing so its ledger stays independent of the artifact.
-2. After the reviewer returns its technical findings, send it the ledger as its final pass. When the runtime cannot continue that reviewer, dispatch a fresh one with `agents/reviewer.md`, the approach, and the ledger for this pass alone. The ledger is evidence of user intent; send it without commentary.
+2. After the reviewer returns its technical findings, send it `agents/intent-reviewer.md` and the ledger as its final pass. When the runtime cannot continue that reviewer, dispatch a fresh one with `agents/intent-reviewer.md`, the approach, its coordinates, and the ledger. Send the ledger without commentary.
 
-Every ledger entry reported as anything other than honored or out of scope is a substantive finding. Confirm that a named owner exists for each handed-off entry.
+Resolve missing and contradicted entries with `change` or by asking the user; ask the user about unresolved entries. Keep out-of-scope entries with the approach so the stage they name receives them.
 
 ## Resolve
 
@@ -34,9 +34,7 @@ Consume every substantive finding individually.
 
 - **change** — revise the approach to address the finding.
 - **disagree** — keep the approach and give a specific technical reason supported by evidence.
-- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, settle an open question, or needs a product, scope, or priority choice the author does not own. Ask in chat, wait for the answer, then apply it: `change` the approach, or record the answer as the disposition when the user keeps it as is. An open question, TODO, or "not yet approved" note written into an artifact leaves the finding unresolved.
-
-A user decision is outside the author's `disagree`.
+- **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, settle an open question, or needs a product, scope, or priority choice the author does not own. Only the user can override a user decision. Ask in chat, wait for the answer, then apply it: `change` the approach, or record the answer as the disposition when the user keeps it as is. An open question, TODO, or "not yet approved" note written into an artifact leaves the finding unresolved.
 
 A missing requirement is not a reason to dismiss a technical defect. If a finding exposes an omission in the written intent, update the affected artifact rather than using its silence as justification.
 
@@ -44,4 +42,4 @@ Do not defer, rank away, or silently drop substantive findings. After material r
 
 ## Done
 
-The review is complete when an independent reviewer has inspected the approach and every substantive finding has an explicit `change`, an evidenced `disagree`, or an applied answer from the user. When the intent check runs, it also requires a completed ledger pass.
+The review is complete when an independent reviewer has inspected the approach and every substantive finding has an explicit `change`, an evidenced `disagree`, or an applied answer from the user. When the approach was shaped with the user, it also requires a completed ledger pass, or a stated reason the transcripts could not be passed.
