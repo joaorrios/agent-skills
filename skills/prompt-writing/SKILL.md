@@ -70,6 +70,12 @@ Then check how the draft reads without your context. When a wrong start would wa
 
 This step is complete when every line passes, nothing only you know was cut, and a reading without your context matches the intent.
 
+## 5. Approve and send
+
+Show the user the brief and send it once they approve it. When they change it, apply the change and show it again.
+
+This step is complete when the user has approved the exact brief you send.
+
 ## When the output is wrong
 
 Read the output against the zones. Most failures are one of these misfits:
@@ -81,4 +87,4 @@ Read the output against the zones. Most failures are one of these misfits:
 
 When a failure fits none of these, the intent or the facts were incomplete: return to step 1.
 
-Fix the cause the entry names in the brief's wording, then send the revised brief. The fix is done when the output is what you needed.
+Fix the cause the entry names in the brief's wording, then take the revised brief through step 5. The fix is done when the output is what you needed.
