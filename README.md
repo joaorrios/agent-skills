@@ -29,6 +29,8 @@ skills/
   approach-review/
     SKILL.md
     agents/
+      intent-extractor.md
+      intent-reviewer.md
       reviewer.md
   auditing-disk-space/
     SKILL.md
@@ -52,7 +54,7 @@ skills/
     SKILL.md
 ```
 
-The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary.
+The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`; `approach-review` can also run an intent check with its extractor and intent reviewer. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary.
 
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
