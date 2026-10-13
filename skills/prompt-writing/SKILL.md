@@ -42,8 +42,11 @@ Write the open-field parts at the right **altitude**: specific enough to guide, 
 - **Reasons with constraints.** A constraint with its why generalizes to cases you did not list. "The response is read aloud by a text-to-speech engine, so write out symbols" beats "never use ellipses".
 - **Chekhov's gun.** The recipient treats everything in the brief as something it is meant to use: a mentioned edge case gets handled, a named tool gets called, a detail mentioned in passing becomes the focus, and parallel runs given the same detail converge on it. Include only what should fire, and cut details that give a concern more weight than the user's intent calls for. Emphasis works the same way: CRITICAL and MUST make capable models overtrigger, so state a real constraint plainly with its reason.
 - **Positive targets.** Say what to do. A prohibition puts the banned behaviour on stage too. Keep one only as a hard guardrail you cannot phrase positively, and pair it with the target behaviour.
-- **Material as input.** A draft, mockup, or sample in context, whether text, image, video, or motion, becomes a **mold** the output copies, however the brief frames it. Pass one when the goal is a close copy; otherwise it is an accidental mold. When the recipient should invent, pass the facts and constraints the material holds instead; when the task works on the material itself (review it, edit it, follow it), point to it.
-- **References for quality.** To set a quality bar, name a reference the recipient knows from a large body of work: a site, an author, a publication, a style, a tool. A named reference recruits what the recipient already knows about that body of work, where a single sample becomes an accidental mold.
+- **Material and references.** A draft, mockup, or sample in context, whether text, image, video, or motion, becomes a **mold** the output copies, however the brief frames it. Match what you pass to the aim:
+  - **Copy**: pass the single sample.
+  - **Quality bar**: name a body of work the recipient knows, such as a site, an author, a publication, a style, or a tool.
+  - **Invention**: pass the principles the material holds, such as its structure, tone, or priorities, rather than the material itself.
+  - **Work on the material** (review it, edit it, follow it): point to it.
 - **Bounded demands.** Every superlative (best, all, every, until perfect) gets a stopping condition. The strongest completion criteria are both checkable and exhaustive: "every changed endpoint has a test" rather than "test thoroughly".
 - **Explicit action and scope.** Capable models follow instructions literally: "suggest changes" gets suggestions. Say whether to act or advise, how far the work extends, and ask explicitly for work beyond the basics when you want it.
 - **Current state.** Derive each rule from the current intent and the risks this task carries for this recipient. A past mistake earns a line only if the same risk is live in this task.
@@ -73,7 +76,7 @@ Read the output against the zones. Most failures are one of these misfits:
 
 - **Generic average**: the output is the safe answer anyone would give. The brief lacks the context and the bar that make it specific; rules alone describe the average ("short, accurate, no clickbait" returns "A Guide to Remote Team Productivity"). Add what only you know about this case, and name a reference that sets the bar.
 - **Improvising where it must not**: a narrow bridge written as an open field. Add the schema or spell out the format, and have the recipient check its output against it.
-- **Right direction, mediocre**: the recipient complies instead of trying. Rules turn the task into a checklist to satisfy, or material in context acts as a mold. Cut the rules down to the goal and the bar, and handle the material as **Material as input** describes.
+- **Right direction, mediocre**: the recipient complies instead of trying. Rules turn the task into a checklist to satisfy, or material in context acts as a mold. Cut the rules down to the goal and the bar, and handle the material as **Material and references** describes.
 - **Wrong focus**: the work centers on a minor part, converges where it should diverge, or does more than asked. A Chekhov's gun is firing: a mention that should not be there, or an emphatic instruction. Cut the mention, or state the instruction plainly with the condition for using it.
 
 When a failure fits none of these, the intent or the facts were incomplete: return to step 1.
