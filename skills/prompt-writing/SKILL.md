@@ -13,9 +13,8 @@ A **brief** is a one-off prompt that asks a model or agent for a specific output
 Know the **runner** first: the model or agent that will run the brief, its tier, its tools, and what it loads into context on its own. Then gather what the brief carries:
 
 - **Goal**: what the output is for, who consumes it (you, a person, a parser), and why it matters.
-- **What only you know**: facts the runner cannot infer from training or from its tools, including what is already done. When unsure whether a fact belongs, [`references/content.md`](references/content.md#write-what-only-you-know) lists the kinds and the test.
+- **What only you know**: facts and constraints that reach the runner only through you, because this session found them, the user said them in your conversation, or they sit in a doc you were told to use. That covers the rules of skills you loaded, confirmations given for this task, and what is already done, dead ends included. Files the runner loads on its own, such as `AGENTS.md` or `CLAUDE.md`, already reach it.
 - **Coordinates**: the paths, URLs, ids, and branches of the real material, each with what it holds. A pasted or paraphrased copy spends the runner's attention and drifts from the source.
-- **Rules the runner will not load on its own**: instructions from the conversation, from skills you loaded, and confirmations given for this task. Instruction files the runner loads itself stay out.
 - **Done**: what a finished output looks like and what to return in what shape, stated so the runner can tell done from not done.
 
 Ask the user for anything that would change the brief and that neither you nor the material at hand holds.
@@ -33,7 +32,7 @@ Use a schema when one exists. Otherwise spell the format out in the brief, with 
 
 Most briefs mix both. A brief to an agent leaves the approach open and locks the return format; a generation request leaves the content open and locks the output schema. Zone each part rather than picking one mode for the whole brief.
 
-Calibrate the zones to the runner: the less capable the model, the more of the task becomes narrow bridge. The more capable, including a runner more capable than you, the more stays open field, with the method left to it, since the steps you would take cap a stronger model. When the runner is a small or fast model, read [`references/content.md`](references/content.md#small-runners).
+Calibrate the zones to the runner: the less capable the model, the more of the task becomes narrow bridge. The more capable, including a runner more capable than you, the more stays open field, with the method left to it, since the steps you would take cap a stronger model. When the runner is a small or fast model, read [`references/small-runners.md`](references/small-runners.md).
 
 This step is complete when every part of the task is marked open field or narrow bridge and every narrow-bridge part has its schema or spelled-out format.
 
@@ -58,7 +57,7 @@ This step is complete when each item from step 1 appears once in the draft, and 
 
 ## 4. Check the draft
 
-Read the draft line by line. Each line follows the step 3 rules and either changes behaviour against the runner's default or carries something only you know. Keep a line when unsure whether it carries something only you know; delete a whole sentence that fails rather than trimming words.
+Read the draft line by line. Each line follows the step 3 rules and either changes behaviour against the runner's default or carries something only you know; restated defaults such as "be helpful" or "think step by step" say nothing. Keep a line when unsure whether it carries something only you know; delete a whole sentence that fails rather than trimming words.
 
 Then check how the draft reads without your context. When a wrong start would waste real work, dispatch a subagent on the runner's model, give it only the draft, unprimed, and ask how it understands the task and what it would do, without doing it. Compare that reading with the intent from step 1 and fix where they diverge. Trust the fresh reading over your own sense of ambiguity: the author tends to find ambiguity a fresh reader resolves. Otherwise, read the draft yourself as the runner would, with only this brief and its tools.
 
