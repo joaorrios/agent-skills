@@ -13,7 +13,7 @@ A **brief** is a one-off prompt that asks a model or agent for a specific output
 Know the **recipient** first: the model or agent that will run the brief, its tier, its tools, and what it loads into context on its own. Then gather what the brief carries:
 
 - **Goal**: what the output is for, who consumes it (you, a person, a parser), and why it matters.
-- **What only you know**: facts and constraints that reach the recipient only through you, because this session found them, the user said them in your conversation, or they sit in a doc you were told to use. That covers the rules of skills you loaded, confirmations given for this task, and what is already done, dead ends included. Files the recipient loads on its own, such as `AGENTS.md` or `CLAUDE.md`, already reach it.
+- **What only you know**: facts and constraints that reach the recipient only through you, because this session found them, the user said them in your conversation, or they sit in a doc you were told to use. That covers the rules of skills you loaded, confirmations given for this task, and what is already done, dead ends included. A subagent in your own harness loads the same instruction files you do, global ones included, so their rules already reach it; your conversation and session settings such as an output style do not. When the recipient runs elsewhere and you cannot tell what it loads, carry the rules this task needs.
 - **Coordinates**: the paths, URLs, ids, and branches of the real material, each with what it holds. A pasted or paraphrased copy spends the recipient's attention and drifts from the source.
 - **Done**: what a finished output looks like and what to return in what shape, stated so the recipient can tell done from not done.
 
