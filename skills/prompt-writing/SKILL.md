@@ -49,7 +49,7 @@ Write the open-field parts at the right **altitude**: specific enough to guide, 
   - **Work on the material** (review it, edit it, follow it): point to it.
 - **Bounded demands.** Every superlative (best, all, every, until perfect) gets a stopping condition. The strongest completion criteria are both checkable and exhaustive: "every changed endpoint has a test" rather than "test thoroughly".
 - **Literal reading.** Capable recipients do what the words say: "suggest changes" gets suggestions, "change it" gets changes. Choose the verb for the output you want. Name a method only when you need the work done exactly that way; otherwise the goal and done carry the request.
-- **Current state.** Derive each rule from the current intent and the risks this task carries for this recipient. A past mistake earns a line only if the same risk is live in this task.
+- **Current state.** Derive each rule from what the user wants now and from what could go wrong in this task, given this recipient's tools and access. Write the rule as it applies now; a past mistake earns a line only when this task carries the same risk.
 - **Matching form.** The brief's form shapes the answer's: a short, plain brief gets a short, plain answer, and a long brief full of jargon gets a long answer full of jargon.
 
 When you want an independent judgment, keep the brief **unprimed**: give the artifact and the coordinates, and keep your conclusions, suspicions, and preferred answer out.
