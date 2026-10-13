@@ -49,7 +49,7 @@ Write the open-field parts at the right **altitude**: specific enough to guide, 
 - **Bounded demands.** Every superlative (best, all, every, until perfect) gets a stopping condition. The strongest completion criteria are both checkable and exhaustive: "every changed endpoint has a test" rather than "test thoroughly".
 - **Explicit action and scope.** Capable models follow instructions literally: "suggest changes" gets suggestions. Say whether to act or advise, how far the work extends, and ask explicitly for work beyond the basics when you want it.
 - **Current state.** Derive each rule from the current intent and the risks this task carries for this runner. A past mistake earns a line only if the same risk is live in this task.
-- **Matching form.** The brief's own format tends to come back in the output; write the brief in the form you want back.
+- **Matching form.** The brief's form shapes the answer's: a short, plain brief gets a short, plain answer, and a long brief full of jargon gets a long answer full of jargon.
 
 ### What a brief carries
 
