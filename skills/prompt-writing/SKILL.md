@@ -6,7 +6,7 @@ license: MIT
 
 # Prompt Writing
 
-A **brief** is a one-off prompt that asks a model or agent for a specific output: a subagent dispatch, a task handed to another agent, a request to another model. It runs once, so its whole value is getting the right output without wasted runs: give the goal, the context the recipient lacks, and the real constraints in the fewest tokens that do it, then leave the rest to the recipient's judgment. When a brief returned the wrong output, go to [When the output is wrong](#when-the-output-is-wrong).
+A **brief** is a one-off prompt that asks a model or agent for a specific output: a subagent dispatch, a task handed to another agent, a request to another model. It runs once, so its whole value is getting the right output without wasted runs: give the goal, the context the recipient lacks, and the real constraints in the fewest tokens that do it, then leave the rest to the recipient's judgment. When a brief returned the wrong output, read [`references/wrong-output.md`](references/wrong-output.md).
 
 ## 1. Gather what the brief carries
 
@@ -69,16 +69,3 @@ This step is complete when every line passes and a reading without your context 
 Show the user the brief and send it once they approve it. When they change it, apply the change and show it again.
 
 This step is complete when the user has approved the exact brief you send.
-
-## When the output is wrong
-
-Read the output against the zones. Most failures are one of these misfits:
-
-- **Generic average**: the output is the safe answer anyone would give. The brief lacks the context and the bar that make it specific; rules alone describe the average ("short, accurate, no clickbait" returns "A Guide to Remote Team Productivity"). Add what only you know about this case, and name a reference that sets the bar.
-- **Improvising where it must not**: a narrow bridge written as an open field. Add the schema or spell out the format, and have the recipient check its output against it.
-- **Right direction, mediocre**: the recipient complies instead of trying. Rules turn the task into a checklist to satisfy, or material in context acts as a mold. Cut the rules down to the goal and the bar, and handle the material as **Material and references** describes.
-- **Wrong focus**: the work centers on a minor part, converges where it should diverge, or does more than asked. A Chekhov's gun is firing: a mention that should not be there, or an emphatic instruction. Cut the mention, or state the instruction plainly with the condition for using it.
-
-When a failure fits none of these, the intent or the facts were incomplete: return to step 1.
-
-Fix the cause the entry names in the brief's wording, then take the revised brief through step 5. The fix is done when the output is what you needed.
