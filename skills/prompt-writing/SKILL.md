@@ -32,7 +32,7 @@ Most briefs mix both. A brief to an agent leaves the approach open and locks the
 
 Calibrate the zones to the runner: the less capable the model, the more of the task becomes narrow bridge. The more capable, including a runner more capable than you, the more stays open field, with the method left to it, since the steps you would take cap a stronger model. When the runner is a small or fast model, read [`references/small-runners.md`](references/small-runners.md).
 
-This step is complete when every part of the task is marked open field or narrow bridge and every narrow-bridge part has its schema or spelled-out format.
+This step is complete when every part is open field or narrow bridge, and each narrow bridge has its schema or format.
 
 ## 3. Draft
 
@@ -51,7 +51,7 @@ Write the open-field parts at the right **altitude**: specific enough to guide, 
 
 When you want an independent judgment, keep the brief **unprimed**: give the artifact and the coordinates, and keep your conclusions, suspicions, and preferred answer out.
 
-This step is complete when each item from step 1 appears once in the draft, and every part is written as its zone calls for.
+This step is complete when each item from step 1 appears once, written as its zone calls for.
 
 ## 4. Check the draft
 
@@ -59,7 +59,7 @@ Read the draft line by line. Each line follows the step 3 rules and either chang
 
 Then check how the draft reads without your context. When a wrong start would waste real work, dispatch a subagent on the runner's model, give it only the draft, unprimed, and ask how it understands the task and what it would do, without doing it. Compare that reading with the intent from step 1 and fix where they diverge. Trust the fresh reading over your own sense of ambiguity: the author tends to find ambiguity a fresh reader resolves. Otherwise, read the draft yourself as the runner would, with only this brief and its tools.
 
-This step is complete when every line passes, nothing only you know was cut, and a reading without your context matches the intent.
+This step is complete when every line passes and a reading without your context matches the intent.
 
 ## 5. Approve and send
 
