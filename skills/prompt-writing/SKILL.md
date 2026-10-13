@@ -32,7 +32,7 @@ Use a schema when one exists. Otherwise spell the format out in the brief, with 
 
 Most briefs mix both. A brief to an agent leaves the approach open and locks the return format; a generation request leaves the content open and locks the output schema. Zone each part rather than picking one mode for the whole brief.
 
-Calibrate the zones to the runner: the less capable the model, the more of the task becomes narrow bridge. When the runner is a small or fast model, read [`references/content.md`](references/content.md#small-runners).
+Calibrate the zones to the runner: the less capable the model, the more of the task becomes narrow bridge. The more capable, including a runner more capable than you, the more stays open field, with the method left to it, since the steps you would take cap a stronger model. When the runner is a small or fast model, read [`references/content.md`](references/content.md#small-runners).
 
 This step is complete when every part of the task is marked open field or narrow bridge and every narrow-bridge part has its schema or spelled-out format.
 
