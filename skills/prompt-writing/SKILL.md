@@ -8,18 +8,19 @@ license: MIT
 
 A **brief** is a one-off prompt that asks a model or agent for a specific output: a subagent dispatch, a task handed to another agent, a request to another model. It runs once, so its whole value is getting the right output without wasted runs: give the goal, the context the runner lacks, and the real constraints in the fewest tokens that do it, then leave the rest to the runner's judgment. When a brief returned the wrong output, go to [When the output is wrong](#when-the-output-is-wrong).
 
-## 1. Recover the intent
+## 1. Gather what the brief carries
 
-Establish:
+Know the **runner** first: the model or agent that will run the brief, its tier, its tools, and what it loads into context on its own. Then gather what the brief carries:
 
-- **Goal**: what the output is for and who consumes it (you, a person, a parser).
-- **Runner**: the model or agent that will run the brief, its tier, its tools, and what it loads into context on its own.
-- **What only you know**: facts the runner cannot infer from training or from its tools. When unsure whether a fact belongs, [`references/content.md`](references/content.md#write-what-only-you-know) lists the kinds and the test.
-- **Done**: what a finished output looks like, stated so the runner can tell done from not done.
+- **Goal**: what the output is for, who consumes it (you, a person, a parser), and why it matters.
+- **What only you know**: facts the runner cannot infer from training or from its tools, including what is already done. When unsure whether a fact belongs, [`references/content.md`](references/content.md#write-what-only-you-know) lists the kinds and the test.
+- **Coordinates**: the paths, URLs, ids, and branches of the real material, each with what it holds. A pasted or paraphrased copy spends the runner's attention and drifts from the source.
+- **Rules the runner will not load on its own**: instructions from the conversation, from skills you loaded, and confirmations given for this task. Instruction files the runner loads itself stay out.
+- **Done**: what a finished output looks like and what to return in what shape, stated so the runner can tell done from not done.
 
 Ask the user for anything that would change the brief and that neither you nor the material at hand holds.
 
-This step is complete when you know the runner, can state the goal, what only you know, and done in a few lines, and no open question would change the brief.
+This step is complete when you know the runner, can state each item in a few lines, and no open question would change the brief.
 
 ## 2. Zone the freedom
 
@@ -51,16 +52,9 @@ Write the open-field parts at the right **altitude**: specific enough to guide, 
 - **Current state.** Derive each rule from the current intent and the risks this task carries for this runner. A past mistake earns a line only if the same risk is live in this task.
 - **Matching form.** The brief's form shapes the answer's: a short, plain brief gets a short, plain answer, and a long brief full of jargon gets a long answer full of jargon.
 
-### What a brief carries
-
-- The goal and why it matters, the constraints, and what is already done.
-- The coordinates to the real material (paths, URLs, ids, branches), each with what it holds. A pasted or paraphrased copy spends the runner's attention and drifts from the source.
-- The rules the runner will not load on its own: instructions from the conversation, from skills you loaded, and confirmations given for this task. Instruction files the runner loads itself stay out.
-- What to return and in what shape, since you consume the result.
-
 When you want an independent judgment, keep the brief **unprimed**: give the artifact and the coordinates, and keep your conclusions, suspicions, and preferred answer out.
 
-This step is complete when the goal, what only you know, and done each appear once in the draft, and every part is written as its zone calls for.
+This step is complete when each item from step 1 appears once in the draft, and every part is written as its zone calls for.
 
 ## 4. Check the draft
 
