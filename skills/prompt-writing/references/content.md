@@ -19,6 +19,6 @@ How much scaffolding a brief needs depends on how much judgment the runner suppl
 For a small or fast runner, move more of the task onto the narrow bridge:
 
 - Spell out the steps in order.
-- Spell out the output format, with varied examples when no interface can enforce it.
+- Spell out the output format, with varied examples when no schema can enforce it.
 - State the decision criteria a more capable model would infer, such as how to break a tie or what counts as out of scope.
 - Have it check its output against the format before answering.

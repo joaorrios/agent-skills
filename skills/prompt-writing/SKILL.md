@@ -17,8 +17,6 @@ Establish:
 - **What only you know**: facts the runner cannot infer from training or from its tools. When unsure whether a fact belongs, [`references/content.md`](references/content.md#write-what-only-you-know) lists the kinds and the test.
 - **Done**: what a finished output looks like, stated so the runner can tell done from not done.
 
-When the runner is a model generation you have not prompted before, read its provider's prompting guide for how it differs from earlier ones.
-
 Ask the user for anything that would change the brief and that neither you nor the material at hand holds.
 
 This step is complete when you know the runner, can state the goal, what only you know, and done in a few lines, and no open question would change the brief.
@@ -30,17 +28,17 @@ Decide how much latitude each part of the task gets, by how fragile it is:
 - **Open field**: several outputs are valid and quality is a judgment call (grouping, generation, copywriting, research, design). Give the goal, the bar, and the context; trust the runner to find the route.
 - **Narrow bridge**: one output is correct and a small error breaks it (schemas, data formats, migrations, API calls, irreversible actions). Give exact steps and a fixed output shape.
 
-Carry a fixed shape in an **interface** whenever one exists: a JSON schema, an enum, a typed tool parameter, a script. `status: "pending" | "in_progress" | "completed"` teaches the values without one example and cannot drift from the code. When no interface can carry the shape, spell the format out in the brief, with three to five varied examples.
+Use a schema when one exists. Otherwise spell the format out in the brief, with three to five varied examples.
 
-Most briefs mix both. A brief to an agent leaves the approach open and locks the return format; a generation request leaves the content open and locks the output schema. Zone each part rather than picking one mode for the whole brief. Writing an open field in narrow-bridge language collapses the output to the generic average; writing a narrow bridge in open-field language invites improvisation where it breaks things.
+Most briefs mix both. A brief to an agent leaves the approach open and locks the return format; a generation request leaves the content open and locks the output schema. Zone each part rather than picking one mode for the whole brief.
 
 Calibrate the zones to the runner: the less capable the model, the more of the task becomes narrow bridge. When the runner is a small or fast model, read [`references/content.md`](references/content.md#small-runners).
 
-This step is complete when every part of the task is marked open field or narrow bridge and every narrow-bridge part has its interface or spelled-out format.
+This step is complete when every part of the task is marked open field or narrow bridge and every narrow-bridge part has its schema or spelled-out format.
 
 ## 3. Draft
 
-Write the open-field parts at the right **altitude**: specific enough to guide, general enough to leave the runner strong heuristics. Too low hardcodes brittle logic ("if the title contains a colon, split on it and capitalize the second half"). Too high gives no signal ("write good titles"). Between them: "make titles specific and punchy over comprehensive." Write the narrow-bridge parts as exact steps with their interface or format.
+Write the open-field parts at the right **altitude**: specific enough to guide, general enough to leave the runner strong heuristics. Too low hardcodes brittle logic ("if the title contains a colon, split on it and capitalize the second half"). Too high gives no signal ("write good titles"). Between them: "make titles specific and punchy over comprehensive." Write the narrow-bridge parts as exact steps with their schema or format.
 
 - **Intent over enumeration.** State the principle once and let the runner handle the cases. "Match the register to the situation" covers the fifth case that four if-clauses miss. Examples of how to act or where to look enumerate too: give the goal, the full scope, and the completion criterion instead.
 - **Reasons with constraints.** A constraint with its why generalizes to cases you did not list. "The response is read aloud by a text-to-speech engine, so write out symbols" beats "never use ellipses".
@@ -77,7 +75,7 @@ This step is complete when every line passes, nothing only you know was cut, and
 Read the output against the zones. Most failures are one of these misfits:
 
 - **Generic average**: the output is the safe answer anyone would give. The brief lacks the context and the bar that make it specific; rules alone describe the average ("short, accurate, no clickbait" returns "A Guide to Remote Team Productivity"). Add what only you know about this case, and name a reference that sets the bar.
-- **Improvising where it must not**: a narrow bridge written as an open field. Add the interface or spell out the format, and have the runner check its output against it.
+- **Improvising where it must not**: a narrow bridge written as an open field. Add the schema or spell out the format, and have the runner check its output against it.
 - **Right direction, mediocre**: the runner complies instead of trying. Rules turn the task into a checklist to satisfy, or material in context acts as a mold. Cut the rules down to the goal and the bar, and handle the material as **Material as input** describes.
 - **Wrong focus**: the work centers on a minor part, converges where it should diverge, or does more than asked. A Chekhov's gun is firing: a mention that should not be there, or an emphatic instruction. Cut the mention, or state the instruction plainly with the condition for using it.
 
