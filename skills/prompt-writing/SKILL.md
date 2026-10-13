@@ -60,9 +60,11 @@ This step is complete when each item from step 1 appears once, written as its zo
 
 Read the draft line by line. Each line follows the step 3 rules and either changes behaviour against the recipient's default or carries something only you know; restated defaults such as "be helpful" or "think step by step" say nothing. Keep a line when unsure whether it carries something only you know; delete a whole sentence that fails rather than trimming words.
 
+Say each thing once. A brief of about ten lines is normal; one past forty usually repeats itself, restates defaults, or carries inline material that belongs in a file the recipient can open.
+
 Then check how the draft reads without your context. When a wrong start would waste real work, dispatch a subagent on the recipient's model, give it only the draft, unprimed, and ask how it understands the task and what it would do, without doing it. Compare that reading with the intent from step 1 and fix where they diverge. Trust the fresh reading over your own sense of ambiguity: the author tends to find ambiguity a fresh reader resolves. Otherwise, read the draft yourself as the recipient would, with only this brief and its tools.
 
-This step is complete when every line passes and a reading without your context matches the intent.
+This step is complete when every line passes, each thing is said once, and a reading without your context matches the intent.
 
 ## 5. Approve and send
 
