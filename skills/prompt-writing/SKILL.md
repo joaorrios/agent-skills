@@ -48,7 +48,7 @@ Write the open-field parts at the right **altitude**: specific enough to guide, 
   - **Invention**: pass the principles the material holds, such as its structure, tone, or priorities, rather than the material itself.
   - **Work on the material** (review it, edit it, follow it): point to it.
 - **Bounded demands.** Every superlative (best, all, every, until perfect) gets a stopping condition. The strongest completion criteria are both checkable and exhaustive: "every changed endpoint has a test" rather than "test thoroughly".
-- **Explicit action and scope.** Capable models follow instructions literally: "suggest changes" gets suggestions. Say whether to act or advise, how far the work extends, and ask explicitly for work beyond the basics when you want it.
+- **Literal reading.** Capable recipients do what the words say: "suggest changes" gets suggestions, "change it" gets changes. Choose the verb for the output you want. Name a method only when you need the work done exactly that way; otherwise the goal and done carry the request.
 - **Current state.** Derive each rule from the current intent and the risks this task carries for this recipient. A past mistake earns a line only if the same risk is live in this task.
 - **Matching form.** The brief's form shapes the answer's: a short, plain brief gets a short, plain answer, and a long brief full of jargon gets a long answer full of jargon.
 
