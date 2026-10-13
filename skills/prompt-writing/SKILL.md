@@ -17,9 +17,7 @@ Know the **runner** first: the model or agent that will run the brief, its tier,
 - **Coordinates**: the paths, URLs, ids, and branches of the real material, each with what it holds. A pasted or paraphrased copy spends the runner's attention and drifts from the source.
 - **Done**: what a finished output looks like and what to return in what shape, stated so the runner can tell done from not done.
 
-Ask the user for anything that would change the brief and that neither you nor the material at hand holds.
-
-This step is complete when you know the runner, can state each item in a few lines, and no open question would change the brief.
+This step is complete when you know the runner and can state each item in a few lines.
 
 ## 2. Zone the freedom
 
