@@ -1,185 +1,112 @@
 ---
 name: auditing-disk-space
-description: Disk space audit and cleanup for macOS. Finds where space went with measured evidence, then removes only the paths the user explicitly authorizes. Use when a Mac is low on space or warns that its disk is full, or when free space keeps shrinking after a cleanup that could not explain it.
+description: Audit macOS disk usage and propose cleanup when space is low or keeps shrinking after cleanup. Execute concrete paths and operations only within the user's approved scope.
 license: MIT
-compatibility: macOS. Full Disk Access for the app or terminal that runs the agent; without it, protected folders go unmeasured.
+compatibility: macOS. Protected folders require Full Disk Access for the executing app or terminal; otherwise report partial coverage.
 ---
 
 # Auditing Disk Space
 
-The audit is **read-only**: it ends with a ranked list of **candidates** and
-stops. Removal is the final step and covers only the paths the user names.
-Approving a category, stating a goal ("free up space"), or calling something a
-cache names no path.
+## 1. Establish the baseline
 
-Every figure you report is **measured** (a command you ran in this audit) or
-**inferred**. Label which.
-
-The audit is done when the measured figures **reconcile** with the used space
-`df` reports, or when you state the remaining gap as unexplained.
-
-## 1. Measure the current state
+Create an audit directory for command output. Record timestamps, units, exit
+status and stderr; show compact summaries and retain inventories in artifacts.
+Send brief progress updates during lengthy scans or operations.
 
 ```bash
-df -h / /System/Volumes/Data
-diskutil info /System/Volumes/Data | grep -Ei "free|purgeable|capacity|container"
+df -k / /System/Volumes/Data
+diskutil apfs list
 tmutil listlocalsnapshots /
+sysctl vm.swapusage
 ```
 
-Start from these numbers, not from one someone reported. Free space moves while
-you work, and Finder's "available" includes purgeable space that `df` does not.
+Keep file-tree allocation (`du`), available space (`df`), APFS container free
+space, per-volume use, snapshots and swap as separate measurements. Label
+inferences and coverage limits; use fresh measurements for the baseline.
+Finish with a timestamped baseline and the scopes each measurement covers.
 
-## 2. Map the home, dot-directories included
+## 2. Locate the consumption
 
 ```bash
-for d in "$HOME"/* "$HOME"/.[!.]*; do
-  /usr/bin/du -sxh "$d" 2>>"$TMPDIR/du-errors.txt"
-done | sort -rh | head -25
-grep -c "not permitted" "$TMPDIR/du-errors.txt"
+/usr/bin/du -x -k -d 1 "$HOME" > "<audit-dir>/home.tsv" 2> "<audit-dir>/home.errors"
 ```
 
-- `.[!.]*` reaches dot-directories, where agent tooling keeps worktrees and
-  models (`.claude`, `.codex`, `.ollama`) and where `.Trash` lives.
-- One `du` per tree. Several large trees in one command get killed (exit 137)
-  and return nothing; in the loop, a killed run loses only its own line.
-- `-x` stays on one filesystem, so network mounts do not stall the scan.
-- `/usr/bin/du` bypasses shell wrappers that truncate output. Truncated output
-  reads exactly like complete output.
-- Permission errors mean undersized figures. Without Full Disk Access,
-  protected folders under `~/Library` come out small, and the missing space
-  shows up later as an unexplained gap.
+Descend one tree at a time through the largest entries, including hidden
+folders. Account for other branches such as `/opt`, `/private/var`, other users
+and backups. Record inaccessible or interrupted scans as partial coverage.
 
-Reconcile the total with `df`. Find the rest (`/opt`, `/private/var`, other
-users, snapshots) before proposing anything.
+Measure candidate sets without overlapping parents and children. Prefer one
+`du` invocation or a common parent to avoid recounting hardlinks across separate
+runs or `xargs` batches. Treat allocation as an upper bound on recovery; shared
+APFS blocks remain unresolved by `du`.
 
-## 3. Follow the biggest branch down
+For allocation above capacity, unexplained free-space changes or large VM/swap,
+read [APFS and VM](references/macos-evidence.md#apfs-and-vm).
+Finish with owners and purposes for the large measured entries, and an explicit
+unexplained remainder where coverage or physical attribution is incomplete.
 
-Descend one level at a time into the largest entry, one tree per command, until
-the cause names itself as a single file or a known class. Known classes, most
-frequent first:
+## 3. Qualify candidates
 
-| Place | What it is |
-|---|---|
-| `~/.<agent-tool>/worktrees/**/node_modules` | Agent worktrees, each with its own dependencies. Tens of GB; usually the answer. |
-| `~/Library/Application Support/*/vm_bundles` | Claude Desktop VM disk, about 10 GB each. `rootfs.img` is redownloaded, not rebuilt from the `.zst` beside it. |
-| `~/Library/Group Containers/*whatsapp*/Message/Media` | Received photos and video. |
-| `/private/var/folders/*/*/X/*code_sign_clone` | One browser copy per update, never collected. |
-| `~/.ollama/models` | Local LLM weights, several GB per model. |
-| `~/Library/pnpm`, `~/.npm`, `~/.cache` | Package stores. Removing them slows every later install. |
-| `/opt/homebrew` | `brew cleanup` reclaims part of it. |
-| App logs | Nothing rotates them. |
-| `~/Library/Caches` | Live state of running apps, not a cause. |
+Establish each candidate's exact path, owner, purpose and proposed operation.
+Complete all applicable checks:
 
-## 4. Measure what removal would free
+- **Use:** capture open-file and cwd listings, process identity and errors;
+  filter path boundaries. Inspect useful output even with a nonzero exit.
+  Report only the use observed within that coverage. Use bounded listings for
+  large trees instead of recursive `lsof +D`. Identify owning app and helpers
+  from process provenance rather than bundle-path matches alone.
+- **Retention:** identify conversations, evidence, unique data and dependencies
+  to preserve. For repository content, read
+  [Repository lifecycle](references/macos-evidence.md#repository-lifecycle).
+- **Purpose:** inspect content rather than extensions or directory names.
+  Distinguish diagnostic logs from conversations needed for session resume.
+  Inspect SQLite with `sqlite3 -readonly -init /dev/null "<file>" ".schema"`.
+- **Effects:** establish what removal or consolidation changes, the owning
+  tool's lifecycle operation, and recreation or download costs. Support
+  regeneration claims with documentation or observed normal use.
 
-Separate `du` runs count shared files once per run. A single run counts each
-hardlink once, so measure a set of directories in one call:
+For large Git object stores, read
+[Git consolidation](references/macos-evidence.md#git-consolidation).
+For updates, installers or system preparation, read
+[Installation artifacts](references/macos-evidence.md#installation-artifacts).
+Finish with evidence for every applicable check; keep unresolved items out of
+the executable candidate list.
 
-```bash
-find "<root>" -maxdepth 3 -type d -name node_modules -prune -print0 \
-  | xargs -0 /usr/bin/du -sxch | tail -1
-```
+## 4. Present the scope for approval
 
-When the list exceeds the argument limit, `xargs` splits it into several runs
-and the total overcounts; measure the common parent instead.
+Rank candidates by measured allocation. Each row needs an ID, exact path,
+operation, allocation upper bound, owner, use and retention evidence, effects
+and regeneration cost. Close with coverage, the unexplained remainder and
+hypotheses clearly distinguished from measurements.
 
-That figure is still an upper bound. Files also held by a store outside the set
-free nothing while the store keeps them. A link count above 1 (`ls -li`) shows
-a hardlink. pnpm on APFS clones files from its store (`pnpm store path`)
-instead, so the link count stays 1 and `du` counts every clone in full. Report
-the figure as an upper bound whenever a store is involved.
+The audit ends here unless the concrete scope is already authorized. An
+unambiguous approval of numbered rows or a presented plan covers their paths,
+operations and effects; carry that approval forward. A general goal or an
+unspecified category supplies no concrete scope. Obtain approval for additions
+or changed effects before including them in execution.
 
-## 5. Test every candidate
+## 5. Execute and verify
 
-A path becomes a candidate only after it passes all four tests.
+For each authorized operation:
 
-**Is a process using it?**
+1. Recheck use, ownership and retention. Resolve changed state against the
+   approved scope before proceeding.
+2. Capture timestamped `df` and relevant allocation/volume baselines.
+3. Execute through the owning tool's lifecycle operation where available.
+   Consolidate Git stores using the reference's preservation gates.
+4. Verify absence for removals or preservation and integrity for consolidation.
+   Report failures and retained originals.
+5. Remeasure `df` and relevant APFS/VM figures. Report observed net gain
+   separately from allocation reduction. Concurrent activity affects the gain;
+   attribute differences only to measured causes, leaving the rest unexplained.
 
-```bash
-lsof 2>/dev/null | grep -F "<path>" | head
-lsof -a -d cwd 2>/dev/null | grep -F "<path>"
-```
+Finish with a result for every approved operation and a before/after comparison.
+Moving to Trash retains allocation until it is emptied.
 
-Timestamps do not answer this. In one audit the Chrome clone in use was six
-hours older than the newest one; removing by date would have killed the running
-browser. `lsof +D` walks the whole tree and takes minutes on `node_modules`.
+## 6. Observe regeneration
 
-**Is it tracked by git?**
-
-```bash
-git -C "<repo>" ls-files --error-unmatch <paths>
-git -C "<worktree>" status --porcelain | wc -l
-```
-
-A `.log` extension does not make a log. Evidence documents named `*.log.md`
-live inside repositories and are tracked.
-
-**Is it a log or a transcript?**
-
-Logs record what a program did to itself. Transcripts record conversations, and
-session resume depends on them. Open the file and look:
-
-```bash
-sqlite3 <file>.sqlite ".schema" | head -20
-```
-
-Fields like `module_path`, `file`, `line`, `level` mean diagnostics. Transcripts
-stay out of the list. Known locations:
-
-| Tool | Path |
-|---|---|
-| Claude Code | `~/.claude/projects/**/*.jsonl` |
-| Codex | `~/.codex/sessions/**/rollout-*.jsonl` |
-| Cursor chats | `~/Library/Application Support/Cursor/User/globalStorage` |
-
-**Is the app running?** Match on the process, not the bundle path. Another app
-often launches helpers that live in `Foo.app/Contents/Helpers/`, so grepping the
-bundle path counts a closed app as open.
-
-```bash
-osascript -e 'tell application "System Events" to get name of every application process whose background only is false'
-```
-
-## 6. Report and stop
-
-Rank candidates by size. For each, give the exact path, the measured size
-(marked as an upper bound where step 4 says so), what it is, what breaks if it
-goes, and whether it regenerates. Take regeneration from the program's
-documentation or observed behaviour, not from the names of neighbouring files.
-Separate the zero-consequence items from the ones that cost time or data.
-
-Close with the reconciliation: how much of the used space the report explains,
-and the gap you could not explain. An admitted gap beats a plausible story,
-because the user acts on the story.
-
-Wait for the user to name paths.
-
-## 7. Remove what the user names
-
-For each named path:
-
-1. Rerun the step 5 tests. State changes between the report and the approval.
-2. Record the free space from `df`.
-3. Remove it with the owning tool's command when one exists: `git worktree
-   remove`, `pnpm store prune`, `brew cleanup`, `ollama rm`, `tmutil
-   deletelocalsnapshots`. Removing their files directly leaves the tool's
-   records pointing at missing paths. Moving to Trash frees nothing until the
-   Trash is emptied.
-4. Record the free space again and compare the gain with the size you reported.
-   Report any difference and its measured cause, or say it is unexplained.
-
-## 8. Verify regeneration
-
-For each removed item you said would regenerate, check the prediction once the
-program has rebuilt it. A `foo.img` next to a `foo.img.zst`, written hours
-later, reads like local decompression. In the audit behind the `vm_bundles`
-row, it was a download: the `.zst` access time did not move during the rebuild,
-and the 1.1 GB kept to avoid a download bought nothing.
-
-```bash
-ls -lTu <suspected-source>    # access time, not modification time
-```
-
-If the access time did not move across the rebuild, that file was not the
-source. The test proves nothing on a volume mounted with `noatime` (check
-`mount`). Tell the user which predictions failed and what each one costs them.
+Check predictions when normal use recreates an item. Mark unobserved predictions
+pending; leave downloads, installs and tests to normal use rather than triggering
+them to refill removed paths. Reassess active or regenerating caches before any
+further cleanup. Finish with each prediction marked observed, contradicted or
+pending, and its download or installation cost recorded.
