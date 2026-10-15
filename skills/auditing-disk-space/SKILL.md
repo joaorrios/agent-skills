@@ -7,9 +7,10 @@ compatibility: macOS. Full Disk Access for the app or terminal that runs the age
 
 # Auditing Disk Space
 
-The audit is **read-only**: it ends with a ranked list of **candidates** and
-stops. Removal is the final step and covers only the paths the user names.
-Approving a category, stating a goal ("free up space"), or calling something a
+The audit is **read-only**: it ends with a numbered list of **candidates** and
+stops. Removal is the final step and covers only the paths the user names,
+directly or by number. A number names the paths listed under it in the report
+and nothing else. Approving a category, stating a goal ("free up space"), or calling something a
 cache names no path.
 
 Every figure you report is **measured** (a command you ran in this audit) or
@@ -142,23 +143,28 @@ osascript -e 'tell application "System Events" to get name of every application 
 
 ## 6. Report and stop
 
-Rank candidates by size. For each, give the exact path, the measured size
-(marked as an upper bound where step 4 says so), what it is, what breaks if it
-goes, and whether it regenerates. Take regeneration from the program's
-documentation or observed behaviour, not from the names of neighbouring files.
-Separate the zero-consequence items from the ones that cost time or data.
+Group the candidates: zero-consequence items first, then the ones that cost
+time or data. Rank by size within each group. Number them with one sequence
+that runs through both groups (if the first group ends at 4, the second starts
+at 5), so each number identifies one item in the whole report.
+
+For each, give the number, the exact paths, the measured size (marked as an
+upper bound where step 4 says so), what it is, what breaks if it goes, and
+whether it regenerates. Take regeneration from the program's documentation or
+observed behaviour, not from the names of neighbouring files.
 
 Close with the reconciliation: how much of the used space the report explains,
 and the gap you could not explain. An admitted gap beats a plausible story,
 because the user acts on the story.
 
-Wait for the user to name paths.
+End by asking which numbers to remove, then wait for the answer.
 
 ## 7. Remove what the user names
 
-For each named path:
+For each item the user names, by number or by path:
 
-1. Rerun the step 5 tests. State changes between the report and the approval.
+1. Map a number to the exact paths listed under it in the report. Rerun the
+   step 5 tests on those paths. State changes between the report and the approval.
 2. Record the free space from `df`.
 3. Remove it with the owning tool's command when one exists: `git worktree
    remove`, `pnpm store prune`, `brew cleanup`, `ollama rm`, `tmutil
