@@ -18,7 +18,7 @@ A treatment the design system applies through a token (a corner shape, an elevat
 
 - **Baseline**: the frames or build in scope, with a link to every screen and state (Figma node link, URL with route and state, or branch and commit).
 - **Design system**: the tokens and components the baseline uses.
-- **Decisions**: the brief in the team's task tracker (every requirement and every line of copy it supplies), structure documents such as a planning page, meeting notes, and this conversation. A structure document often says how items are listed (order, labels, grouping) while the baseline says how they are shown; where the two differ, check whether each covers a different aspect, and spec both. Only a real contradiction goes to step 3.
+- **Decisions**: the brief in the team's task tracker (every requirement and every line of copy it supplies), meeting notes, and this conversation. Where a decision contradicts the baseline, note it for step 3.
 
 This step is complete when every screen and state in scope has a source link, and you know which design system and which decisions apply.
 
