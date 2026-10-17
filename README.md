@@ -8,6 +8,7 @@ Portable skills for coding agents.
 - **auditing-disk-space**: finds where disk space went on a Mac with measured evidence, then removes only the paths the user explicitly authorizes.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
+- **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **project-coordinator** — keeps one persistent coordinator per project that delegates to workers, verifies their results, and survives session changes and context compaction.
 - **prompt-writing**: writes one-off prompts that ask a subagent, another agent, or another model for a specific output.
@@ -41,6 +42,9 @@ skills/
     scripts/
   codex-image/
     SKILL.md
+  dev-handoff/
+    SKILL.md
+    references/
   implementation-review/
     SKILL.md
     agents/
@@ -63,6 +67,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
 `project-coordinator` is invoked by the user only. It runs in Claude Code or Codex inside a git repository, and its reload hook needs a POSIX shell. Workers that outlive the coordinator's session need a runtime such as Paseo. In Cursor, Cursor Projects covers the same need.
+
+`dev-handoff` reads and writes Figma through the Figma MCP server and needs a place to publish an HTML page the team can open. When the `design:design-handoff` skill is installed, it offers that checklist as a complement.
 
 `auditing-disk-space` targets macOS. It measures completely only when the app or terminal running the agent has Full Disk Access.
 
