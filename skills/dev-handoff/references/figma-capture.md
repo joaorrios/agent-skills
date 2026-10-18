@@ -1,18 +1,18 @@
 # Capture a build into Figma
 
-The baseline is a running build or prototype, so the Figma file shows its real screens, captured from the build. A capture shows developers exactly what was approved; a redrawn frame drifts from it. Annotations sit on and beside the captures, which stay as captured.
+The baseline is a build, so the Figma file shows its real screens, captured from the build. A capture shows developers exactly what was approved; a redrawn frame drifts from it. Annotations sit on and beside the captures, which stay as captured.
 
 ## Prepare the build
 
 Set the build to the baseline before capturing:
 
-- Pick the baseline variant and set every prototype toggle and parameter to its baseline value. Each toggle, parameter, fallback, and workaround also gets a row in the drafts table, unless the design system or a decision fixes it.
+- Pick the baseline variant and set every prototype toggle and parameter to its baseline value.
 - Turn off progressive-enhancement utilities that change measured values (for example a CSS `corner-shape` that the design system already applies through a token), so the capture measures the design-system scale. When one cannot be turned off, normalize the captured values back to the design-system scale and say so in the annotation.
-- Load realistic content; sample data gets a row in the drafts table.
+- Load realistic content.
 
 ## Capture
 
-Capture each screen and state in scope at each viewport the delivery targets, with Figma's capture tool (`generate_figma_design` in the Figma MCP server). A state the brief or a decision requires and the build lacks gets a row in the drafts table.
+Capture each screen and state in scope at each viewport the delivery targets, with the Figma MCP tool that captures a live web page as Figma layers (`generate_figma_design`).
 
 ## Organize
 

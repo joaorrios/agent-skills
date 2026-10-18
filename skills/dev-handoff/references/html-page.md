@@ -1,6 +1,6 @@
 # HTML handoff page
 
-One self-contained HTML page per delivery. When the user shared a reference handoff page, reuse its CSS and structure; otherwise use the structure and look below. On the both route, the page carries the header, motion, mobile, rules, drafts, and AI spec, and links each static state to its Figma section instead of rendering it.
+One HTML page per delivery, with its exported assets as supporting files. When the user shared a reference handoff page, reuse its CSS and structure; otherwise use the structure and look below. On the both route, section 2 becomes one "Open in Figma ↗" link per static state, with no live render; every other section stays, and the drafts table lives here.
 
 ## Values
 
