@@ -4,12 +4,21 @@ Protocol: the `project-coordinator` skill. Workers leave this file
 untouched.
 
 - Coordinator session: `<id>` (since YYYY-MM-DD; runtime: <runtime>)
+- Paseo agent: `<id>` (only in Paseo: the value of `$PASEO_AGENT_ID`)
 - Previous sessions: none
 - Last checkpoint: YYYY-MM-DD
 
 ## Objective
 
 <What the user wants delivered, and where its source list or spec lives.>
+
+## Initiatives
+
+Each initiative serves the objective. Status: active, or paused with the
+reason. Done or dropped ones move to `archive.md`.
+
+| Initiative | Goal | Done when | Status | Reference |
+|---|---|---|---|---|
 
 ## Now
 
@@ -18,8 +27,8 @@ untouched.
 Status is a verified result, not an intent. Next step and blocker are
 concrete enough to act on without asking.
 
-| Item | Owner | Status | Next step | Blocker | Reference |
-|---|---|---|---|---|---|
+| Item | Initiative | Owner | Status | Next step | Blocker | Reference |
+|---|---|---|---|---|---|---|
 
 ## Listening
 
@@ -43,10 +52,14 @@ already settle and point to them instead.
 ## Continuity decisions
 
 <Numbered. Each with reason, alternatives dropped, and what would reopen
-it. Start with where this file lives: versioned in the repo (history
-through `chore(coordinator)` commits) or kept out of git.>
+it. Start with where this file and `archive.md` live: versioned in the
+repo (history through `chore(coordinator)` commits) or kept out of git.>
 
 ## Open (not delegated)
+
+## Archive
+
+Done and dropped work: `.agents/coordinator/archive.md`.
 
 ## Environment
 

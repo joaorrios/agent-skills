@@ -35,6 +35,7 @@ never this protocol, the role, or the whole state.
 |---|---|---|
 | Protocol | this skill | the skill is updated |
 | State and project agreements | `.agents/coordinator/state.md` | something important changes |
+| Done and dropped work | `.agents/coordinator/archive.md`, same versioning and commit as the state | a task or initiative ends |
 | History and evidence | `git log`, `chore(coordinator): …` commits | every checkpoint |
 | Product decisions and specs | wherever the project keeps them | the user approves them |
 
@@ -49,14 +50,23 @@ Reload paths:
   "Coordinator session" line.
 - New session: the user invokes this skill again.
 
+## Initiatives
+
+One objective can carry several initiatives; opening, pausing, dropping,
+or closing one is the user's call. Done and dropped work leaves the state
+for `archive.md`. Rules: [`references/initiatives.md`](references/initiatives.md).
+
 ## Take over or resume
 
 1. Read `.agents/coordinator/state.md` whole. When it does not exist,
    create it from [`references/state-template.md`](references/state-template.md),
-   ask the user for the objective and the agreements the template lists,
-   and commit it.
-2. Register this session. When the state names another one, move it to
-   "Previous sessions". One coordinator at a time: when the registered
+   ask the user for the objective, its initiatives, and the agreements the
+   template lists, and commit it. When it lacks a section, line, or column
+   the template has, add it (the "Paseo agent" line only in Paseo).
+2. Register this session. When the state names another one, move it,
+   with its "Paseo agent" value, to "Previous sessions". In Paseo, add or
+   update the "Paseo agent" line with `$PASEO_AGENT_ID`; elsewhere,
+   remove it. One coordinator at a time: when the registered
    session still shows as active in the runtime, ask the user before
    taking over.
 3. **Reconcile** the state with reality before acting:
@@ -79,8 +89,8 @@ Reload paths:
   Prefer one that outlives this session and reports when the worker
   finishes.
 - One objective per worker, with a checkable finish criterion. Record in
-  the state: worker id, model or profile, objective, files it touches,
-  start.
+  the state: worker id, model or profile, initiative, objective, files it
+  touches, start.
 - The worker prompt carries the objective, limits, files, finish
   criterion, and:
   - the model and provider limits you work under, from the agreements or
@@ -95,7 +105,8 @@ Reload paths:
     to what it cites. A long report goes to a file, and the reply cites
     the path.
 - A task is **done** when the user accepts its deliverable as final.
-  Until then follow-ups go to the same worker; then close or archive it.
+  Until then follow-ups go to the same worker; then close or archive the
+  worker in the runtime.
 
 ## Follow without babysitting
 
@@ -113,10 +124,10 @@ Reload paths:
 - Update the state when the objective, a decision, a delegation, a result,
   a block, or an interruption changes, and before long waits. Compaction
   gives no warning.
-- Commit the state alone: `chore(coordinator): <what changed>`, never
-  mixed with worker code.
-- Keep the state short: finished items leave "Now" and become commit
-  references; detail stays in its source file.
+- Commit the state, with `archive.md` when it changed, alone:
+  `chore(coordinator): <what changed>`, never mixed with worker code.
+- Keep the state short: done items leave "Now" for `archive.md`; detail
+  stays in its source file.
 - Label every claim: **decided** (the user approved, with the date),
   **proposed** (awaits the user), **hypothesis** (unverified),
   **uncertain** (could not confirm). A suggestion becomes a decision only
@@ -131,8 +142,8 @@ Reload paths:
   user can make waits for that report: the work it blocks waits, the rest
   goes on. Until then, end each turn with one line: "Waiting on X and Y."
 - The report opens with what changed and what needs the user, names tasks
-  by name, links each deliverable, and closes with a status table. Each
-  decision carries its context and links, so nothing relies on an earlier
-  turn.
+  by name, links each deliverable, and closes with a status table grouped
+  by initiative. Each decision carries its context and links, so nothing
+  relies on an earlier turn.
 - Stay concise, even when the user sends long text such as a transcript.
 - The project's agreements override these defaults.
