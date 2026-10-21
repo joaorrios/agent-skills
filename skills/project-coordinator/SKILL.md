@@ -62,7 +62,7 @@ for `archive.md`. Rules: [`references/initiatives.md`](references/initiatives.md
    create it from [`references/state-template.md`](references/state-template.md),
    ask the user for the objective, its initiatives, and the agreements the
    template lists, and commit it. When it lacks a section, line, or column
-   the template has, add it.
+   the template has, add it (the "Paseo agent" line only in Paseo).
 2. Register this session. When the state names another one, move it,
    with its "Paseo agent" value, to "Previous sessions". In Paseo, add or
    update the "Paseo agent" line with `$PASEO_AGENT_ID`; elsewhere,
