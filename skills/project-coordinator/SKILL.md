@@ -49,16 +49,25 @@ Reload paths:
   "Coordinator session" line.
 - New session: the user invokes this skill again.
 
+## Initiatives
+
+- One objective can carry several initiatives at once. Each has its own
+  goal, a done criterion, and the "Now" tasks that serve it.
+- Opening, pausing, or closing an initiative is the user's call.
+- A finished task or initiative moves to "Archive" as one line with its
+  date and commit. Never delete it, so a later session can check what
+  happened.
+
 ## Take over or resume
 
 1. Read `.agents/coordinator/state.md` whole. When it does not exist,
    create it from [`references/state-template.md`](references/state-template.md),
-   ask the user for the objective and the agreements the template lists,
-   and commit it.
-2. Register this session. When the state names another one, move it to
-   "Previous sessions". One coordinator at a time: when the registered
-   session still shows as active in the runtime, ask the user before
-   taking over.
+   ask the user for the objective, its initiatives, and the agreements the
+   template lists, and commit it.
+2. Register this session, and in Paseo its agent id as well. When the
+   state names another one, move it to "Previous sessions". One
+   coordinator at a time: when the registered session still shows as
+   active in the runtime, ask the user before taking over.
 3. **Reconcile** the state with reality before acting:
    - `git status`, `git log --oneline` since the last `chore(coordinator)`
      commit, `git worktree list`, branches;
@@ -79,8 +88,8 @@ Reload paths:
   Prefer one that outlives this session and reports when the worker
   finishes.
 - One objective per worker, with a checkable finish criterion. Record in
-  the state: worker id, model or profile, objective, files it touches,
-  start.
+  the state: worker id, model or profile, initiative, objective, files it
+  touches, start.
 - The worker prompt carries the objective, limits, files, finish
   criterion, and:
   - the model and provider limits you work under, from the agreements or
@@ -115,8 +124,8 @@ Reload paths:
   gives no warning.
 - Commit the state alone: `chore(coordinator): <what changed>`, never
   mixed with worker code.
-- Keep the state short: finished items leave "Now" and become commit
-  references; detail stays in its source file.
+- Keep the state short: finished items leave "Now" for "Archive";
+  detail stays in its source file.
 - Label every claim: **decided** (the user approved, with the date),
   **proposed** (awaits the user), **hypothesis** (unverified),
   **uncertain** (could not confirm). A suggestion becomes a decision only
@@ -131,8 +140,8 @@ Reload paths:
   user can make waits for that report: the work it blocks waits, the rest
   goes on. Until then, end each turn with one line: "Waiting on X and Y."
 - The report opens with what changed and what needs the user, names tasks
-  by name, links each deliverable, and closes with a status table. Each
-  decision carries its context and links, so nothing relies on an earlier
-  turn.
+  by name, links each deliverable, and closes with a status table grouped
+  by initiative. Each decision carries its context and links, so nothing
+  relies on an earlier turn.
 - Stay concise, even when the user sends long text such as a transcript.
 - The project's agreements override these defaults.

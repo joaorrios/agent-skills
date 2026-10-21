@@ -4,12 +4,21 @@ Protocol: the `project-coordinator` skill. Workers leave this file
 untouched.
 
 - Coordinator session: `<id>` (since YYYY-MM-DD; runtime: <runtime>)
+- Paseo agent: `<id>` (only in Paseo: the value of `$PASEO_AGENT_ID`)
 - Previous sessions: none
 - Last checkpoint: YYYY-MM-DD
 
 ## Objective
 
 <What the user wants delivered, and where its source list or spec lives.>
+
+## Initiatives
+
+Each initiative serves the objective. Status: active, paused (with the
+reason), or done, which moves it to "Archive".
+
+| Initiative | Goal | Done when | Status | Reference |
+|---|---|---|---|---|
 
 ## Now
 
@@ -18,8 +27,8 @@ untouched.
 Status is a verified result, not an intent. Next step and blocker are
 concrete enough to act on without asking.
 
-| Item | Owner | Status | Next step | Blocker | Reference |
-|---|---|---|---|---|---|
+| Item | Initiative | Owner | Status | Next step | Blocker | Reference |
+|---|---|---|---|---|---|---|
 
 ## Listening
 
@@ -47,6 +56,11 @@ it. Start with where this file lives: versioned in the repo (history
 through `chore(coordinator)` commits) or kept out of git.>
 
 ## Open (not delegated)
+
+## Archive
+
+Finished tasks and initiatives, newest first: one line each with its date
+and commit. Never delete a line.
 
 ## Environment
 
