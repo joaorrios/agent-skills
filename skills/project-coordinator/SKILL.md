@@ -35,6 +35,7 @@ never this protocol, the role, or the whole state.
 |---|---|---|
 | Protocol | this skill | the skill is updated |
 | State and project agreements | `.agents/coordinator/state.md` | something important changes |
+| Done and dropped work | `.agents/coordinator/archive.md`, same versioning and commit as the state | a task or initiative ends |
 | History and evidence | `git log`, `chore(coordinator): …` commits | every checkpoint |
 | Product decisions and specs | wherever the project keeps them | the user approves them |
 
@@ -51,28 +52,21 @@ Reload paths:
 
 ## Initiatives
 
-- One objective can carry several initiatives at once. Each has its own
-  goal, a done criterion, and the "Now" tasks that serve it. A project
-  with one track has one initiative named after the objective.
-- Opening, pausing, or closing an initiative is the user's call. A paused
-  initiative gets no new delegation; its running workers finish their
-  current task and wait.
-- A **done** task (see Delegate) or initiative moves to the state's
-  "Archive" section as one line: its date and the commit or reference
-  that delivered it. The state keeps the latest ten lines; older ones
-  move to `.agents/coordinator/archive.md`. Never delete an archive line,
-  so a later session can check what happened.
+One objective can carry several initiatives; opening, pausing, dropping,
+or closing one is the user's call. Done and dropped work leaves the state
+for `archive.md`. Rules: [`references/initiatives.md`](references/initiatives.md).
 
 ## Take over or resume
 
 1. Read `.agents/coordinator/state.md` whole. When it does not exist,
    create it from [`references/state-template.md`](references/state-template.md),
    ask the user for the objective, its initiatives, and the agreements the
-   template lists, and commit it.
+   template lists, and commit it. When it lacks a section, line, or column
+   the template has, add it.
 2. Register this session. When the state names another one, move it,
-   with its "Paseo agent" value, to "Previous sessions". In Paseo, set
-   the "Paseo agent" line to this session's `$PASEO_AGENT_ID`; elsewhere,
-   remove the line. One coordinator at a time: when the registered
+   with its "Paseo agent" value, to "Previous sessions". In Paseo, add or
+   update the "Paseo agent" line with `$PASEO_AGENT_ID`; elsewhere,
+   remove it. One coordinator at a time: when the registered
    session still shows as active in the runtime, ask the user before
    taking over.
 3. **Reconcile** the state with reality before acting:
@@ -130,10 +124,10 @@ Reload paths:
 - Update the state when the objective, a decision, a delegation, a result,
   a block, or an interruption changes, and before long waits. Compaction
   gives no warning.
-- Commit the state alone: `chore(coordinator): <what changed>`, never
-  mixed with worker code.
-- Keep the state short: done items leave "Now" for the "Archive"
-  section; detail stays in its source file.
+- Commit the state, with `archive.md` when it changed, alone:
+  `chore(coordinator): <what changed>`, never mixed with worker code.
+- Keep the state short: done items leave "Now" for `archive.md`; detail
+  stays in its source file.
 - Label every claim: **decided** (the user approved, with the date),
   **proposed** (awaits the user), **hypothesis** (unverified),
   **uncertain** (could not confirm). A suggestion becomes a decision only

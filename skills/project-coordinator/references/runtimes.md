@@ -21,7 +21,7 @@ across coordinator sessions; the user follows the whole team in the app.
 - Completion notices, follow-ups to the same agent, archiving, and
   heartbeats or schedules for checks all exist as tools; reconcile from
   its agent, permission, and schedule lists.
-- Paseo sets `$PASEO_AGENT_ID` inside its agents. Record it on the
+- Paseo sets `$PASEO_AGENT_ID` inside its agents (Paseo CLI docs). Record it on the
   state's "Paseo agent" line so anything that reads the state, such as a
   Paseo plugin, can tell the coordinator from its workers.
 

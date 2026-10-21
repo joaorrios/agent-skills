@@ -14,8 +14,8 @@ untouched.
 
 ## Initiatives
 
-Each initiative serves the objective. Status: active, paused (with the
-reason), or done, which moves it to "Archive".
+Each initiative serves the objective. Status: active, or paused with the
+reason. Done or dropped ones move to `archive.md`.
 
 | Initiative | Goal | Done when | Status | Reference |
 |---|---|---|---|---|
@@ -52,16 +52,14 @@ already settle and point to them instead.
 ## Continuity decisions
 
 <Numbered. Each with reason, alternatives dropped, and what would reopen
-it. Start with where this file lives: versioned in the repo (history
-through `chore(coordinator)` commits) or kept out of git.>
+it. Start with where this file and `archive.md` live: versioned in the
+repo (history through `chore(coordinator)` commits) or kept out of git.>
 
 ## Open (not delegated)
 
 ## Archive
 
-Done tasks and initiatives, newest first: one line each with its date and
-the commit or reference that delivered it. Keep the latest ten here; move
-older lines to `.agents/coordinator/archive.md`. Never delete a line.
+Done and dropped work: `.agents/coordinator/archive.md`.
 
 ## Environment
 
