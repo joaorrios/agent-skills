@@ -59,8 +59,9 @@ through `chore(coordinator)` commits) or kept out of git.>
 
 ## Archive
 
-Finished tasks and initiatives, newest first: one line each with its date
-and commit. Never delete a line.
+Done tasks and initiatives, newest first: one line each with its date and
+the commit or reference that delivered it. Keep the latest ten here; move
+older lines to `.agents/coordinator/archive.md`. Never delete a line.
 
 ## Environment
 

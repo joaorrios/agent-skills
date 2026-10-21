@@ -52,11 +52,16 @@ Reload paths:
 ## Initiatives
 
 - One objective can carry several initiatives at once. Each has its own
-  goal, a done criterion, and the "Now" tasks that serve it.
-- Opening, pausing, or closing an initiative is the user's call.
-- A finished task or initiative moves to "Archive" as one line with its
-  date and commit. Never delete it, so a later session can check what
-  happened.
+  goal, a done criterion, and the "Now" tasks that serve it. A project
+  with one track has one initiative named after the objective.
+- Opening, pausing, or closing an initiative is the user's call. A paused
+  initiative gets no new delegation; its running workers finish their
+  current task and wait.
+- A **done** task (see Delegate) or initiative moves to the state's
+  "Archive" section as one line: its date and the commit or reference
+  that delivered it. The state keeps the latest ten lines; older ones
+  move to `.agents/coordinator/archive.md`. Never delete an archive line,
+  so a later session can check what happened.
 
 ## Take over or resume
 
@@ -64,10 +69,12 @@ Reload paths:
    create it from [`references/state-template.md`](references/state-template.md),
    ask the user for the objective, its initiatives, and the agreements the
    template lists, and commit it.
-2. Register this session, and in Paseo its agent id as well. When the
-   state names another one, move it to "Previous sessions". One
-   coordinator at a time: when the registered session still shows as
-   active in the runtime, ask the user before taking over.
+2. Register this session. When the state names another one, move it,
+   with its "Paseo agent" value, to "Previous sessions". In Paseo, set
+   the "Paseo agent" line to this session's `$PASEO_AGENT_ID`; elsewhere,
+   remove the line. One coordinator at a time: when the registered
+   session still shows as active in the runtime, ask the user before
+   taking over.
 3. **Reconcile** the state with reality before acting:
    - `git status`, `git log --oneline` since the last `chore(coordinator)`
      commit, `git worktree list`, branches;
@@ -104,7 +111,8 @@ Reload paths:
     to what it cites. A long report goes to a file, and the reply cites
     the path.
 - A task is **done** when the user accepts its deliverable as final.
-  Until then follow-ups go to the same worker; then close or archive it.
+  Until then follow-ups go to the same worker; then close or archive the
+  worker in the runtime.
 
 ## Follow without babysitting
 
@@ -124,8 +132,8 @@ Reload paths:
   gives no warning.
 - Commit the state alone: `chore(coordinator): <what changed>`, never
   mixed with worker code.
-- Keep the state short: finished items leave "Now" for "Archive";
-  detail stays in its source file.
+- Keep the state short: done items leave "Now" for the "Archive"
+  section; detail stays in its source file.
 - Label every claim: **decided** (the user approved, with the date),
   **proposed** (awaits the user), **hypothesis** (unverified),
   **uncertain** (could not confirm). A suggestion becomes a decision only
