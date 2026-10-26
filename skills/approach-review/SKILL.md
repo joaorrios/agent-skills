@@ -13,7 +13,7 @@ Review the technical approach through an independent context before implementati
 
 You are the **approach author**. Do not perform the review yourself.
 
-Dispatch a fresh isolated subagent with strong software-reasoning capability and use `agents/reviewer.md` as its reviewer instructions. Prefer a different model family from the author when a comparably capable one is available. Keep the reviewer read-only when the runtime supports that boundary.
+Dispatch a fresh isolated subagent with strong software-reasoning capability and use `agents/reviewer.md` as its reviewer instructions. Prefer a model family different from the approach author's. Choose the reviewer from the most cost-effective of the latest frontier models listed in [reviewer-models.md](reviewer-models.md). Local rules and explicit user overrides win over this rule. Keep the reviewer read-only when the runtime supports that boundary.
 
 Keep the briefing unprimed. Give the reviewer the proposed approach, its repository or worktree, and enough coordinates to inspect the real system. Let the artifact speak for itself: keep the author's rationale, suspected weaknesses, defenses, and expected conclusions out of the briefing.
 

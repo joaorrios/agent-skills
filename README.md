@@ -30,6 +30,7 @@ Choose the skills you want when prompted. The CLI handles each supported coding 
 skills/
   approach-review/
     SKILL.md
+    reviewer-models.md
     agents/
       intent-extractor.md
       intent-reviewer.md
@@ -47,6 +48,7 @@ skills/
     references/
   implementation-review/
     SKILL.md
+    reviewer-models.md
     agents/
       reviewer.md
   project-coordinator/

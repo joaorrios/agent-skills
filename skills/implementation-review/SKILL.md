@@ -13,7 +13,7 @@ Review the technical implementation through an independent context before it shi
 
 You are the **implementer**. Do not perform the review yourself.
 
-Dispatch a fresh isolated subagent with strong software-reasoning capability and use `agents/reviewer.md` as its reviewer instructions. Prefer a different model family from the implementer when a comparably capable one is available. Keep the reviewer read-only when the runtime supports that boundary.
+Dispatch a fresh isolated subagent with strong software-reasoning capability and use `agents/reviewer.md` as its reviewer instructions. Prefer a model family different from the implementer's. Choose the reviewer from the most cost-effective of the latest frontier models listed in [reviewer-models.md](reviewer-models.md). Local rules and explicit user overrides win over this rule. Keep the reviewer read-only when the runtime supports that boundary.
 
 Keep the briefing unprimed. Give the reviewer the implementation itself: the relevant change range or modified files, the repository or worktree, and enough coordinates to inspect surrounding code. Let the code speak for itself: keep the implementer's rationale, suspected bugs, defenses, and expected conclusions out of the briefing.
 
