@@ -10,6 +10,7 @@ Portable skills for coding agents.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
+- **leaving-pr-comments** — formats GitHub comments an agent posts on the user's behalf, opening with a callout that names the agent, the user, and the agent's role.
 - **project-coordinator** — keeps one persistent coordinator per project that delegates to workers, verifies their results, and survives session changes and context compaction.
 - **prompt-writing**: writes one-off prompts that ask a subagent, another agent, or another model for a specific output.
 - **unhobble** — updates and simplifies context engineering for new, stronger models.
@@ -51,6 +52,11 @@ skills/
     reviewer-models.md
     agents/
       reviewer.md
+  leaving-pr-comments/
+    SKILL.md
+    LICENSE
+    agents/
+      openai.yaml
   project-coordinator/
     SKILL.md
     agents/
@@ -71,6 +77,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 `project-coordinator` is invoked by the user only. It runs in Claude Code or Codex inside a git repository, and its reload hook needs a POSIX shell. Workers that outlive the coordinator's session need a runtime such as Paseo. In Cursor, Cursor Projects covers the same need.
 
 `dev-handoff` reads and writes Figma through the Figma MCP server and needs a place to publish an HTML page the team can open. When the `design:design-handoff` skill is installed, it offers that checklist as a complement.
+
+`leaving-pr-comments` needs an authenticated GitHub CLI (`gh`). It is adapted from `leaving-pr-comments` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
 `auditing-disk-space` targets macOS. It measures completely only when the app or terminal running the agent has Full Disk Access.
 
@@ -97,4 +105,4 @@ Release tags use `vMAJOR.MINOR.PATCH`. Versioning is independent from installati
 
 ## License
 
-MIT
+MIT. `skills/leaving-pr-comments` is adapted from t3dotgg/tstack, MIT © Theo Browne; see its `LICENSE`.
