@@ -47,9 +47,8 @@ Copilot, Cursor Bugbot. CodeRabbit is advisory: pr-wait reports it but never
 waits for it.
 
 Checks gate green: the base branch's required checks, or every CI check when
-none are required. A head with no checks counts as green once the repo has no
-workflows at that head, or once no check has appeared for NO_CHECKS_GRACE
-seconds.
+none are required. A head with no CI checks counts as green once none has
+appeared for NO_CHECKS_GRACE seconds, so a repo without CI still finishes.
 
 Comment
 edits are never events, and top-level comments from CI and deploy bots
@@ -110,10 +109,8 @@ query($owner: String!, $name: String!, $number: Int!) {
       url state headRefOid baseRefName mergeStateStatus
       author { login }
       baseRef { target { oid } }
-      comments(last: 100) { nodes { id url body author { login __typename } } }
-      reviews(last: 100) {
-        nodes { id url state body commit { oid } author { login __typename } }
-      }
+      comments(last: 100) { totalCount nodes { %(comment)s } }
+      reviews(last: 100) { totalCount nodes { %(review)s } }
       reviewThreads(last: 100) {
         totalCount
         nodes {
@@ -126,6 +123,22 @@ query($owner: String!, $name: String!, $number: Int!) {
 }
 """
 
+COMMENT_FIELDS = "id url body author { login __typename }"
+REVIEW_FIELDS = "id url state body commit { oid } author { login __typename }"
+QUERY = QUERY % {"comment": COMMENT_FIELDS, "review": REVIEW_FIELDS}
+# One page of a pull request connection, oldest first.
+PAGE_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      %(field)s(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes { %(nodes)s }
+      }
+    }
+  }
+}
+"""
 THREADS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $after: String) {
   repository(owner: $owner, name: $name) {
@@ -138,8 +151,8 @@ query($owner: String!, $name: String!, $number: Int!, $after: String) {
   }
 }
 """
-# Seconds a head may show no checks at all before it counts as having no CI,
-# for repos whose workflows never run on pull requests.
+# Seconds a head may show no CI checks before it counts as having no CI: long
+# enough for workflows and external CI to report their first status.
 NO_CHECKS_GRACE = 180
 
 Json = dict[str, Any]
@@ -198,13 +211,21 @@ def summary_state(body: str, head: str) -> str | None:
     if not match:
         return None
     try:
-        review = json.loads(match.group(1)).get("code_review") or {}
+        state = json.loads(match.group(1))
     except ValueError:
         return "running"
-    if review.get("commit_sha") != head:
+    # Codex runs a code review and, on request, a security review. Each one
+    # that names the head counts; none naming it means the head is unreviewed.
+    on_head = [
+        (state.get(kind) or {}).get("status")
+        for kind in ("code_review", "security_review")
+        if (state.get(kind) or {}).get("commit_sha") == head
+    ]
+    if not on_head:
         return "running"
-    status = review.get("status")
-    return status if status in ("completed", "failed") else "running"
+    if "failed" in on_head:
+        return "failed"
+    return "completed" if all(status == "completed" for status in on_head) else "running"
 
 
 def who(node: Json) -> tuple[str, bool]:
@@ -320,7 +341,6 @@ class Watcher:
         self.required: set[str] | None = None
         self.prev_snapshot: list[tuple[str, str]] | None = None
         self.pr_files: dict[str, set[str]] = {}
-        self.workflows: dict[str, bool] = {}
         self.head_seen: dict[str, float] = {}
 
     def load(self) -> Json | None:
@@ -382,17 +402,23 @@ class Watcher:
                 checks[row["name"]] = row
         return checks
 
-    def has_workflows(self, head: str) -> bool:
-        """Whether the repo has GitHub Actions workflows at this head."""
-        if head not in self.workflows:
-            try:
-                gh(["api", f"repos/{self.repo}/contents/.github/workflows?ref={head}", "--jq", "length"])
-                self.workflows[head] = True
-            except GhError as error:
-                if "HTTP 404" not in str(error):
-                    raise
-                self.workflows[head] = False
-        return self.workflows[head]
+    def all_nodes(self, field: str, nodes: str) -> list[Json]:
+        """Every node of a pull request connection, oldest first, across pages."""
+        query = PAGE_QUERY % {"field": field, "nodes": nodes}
+        found: list[Json] = []
+        after: str | None = None
+        while True:
+            args = [
+                "api", "graphql", "-f", f"query={query}",
+                "-f", f"owner={self.owner}", "-f", f"name={self.name}", "-F", f"number={self.pr}",
+            ]
+            if after:
+                args += ["-f", f"after={after}"]
+            page = json.loads(gh(args).stdout)["data"]["repository"]["pullRequest"][field]
+            found += page["nodes"]
+            if not page["pageInfo"]["hasNextPage"]:
+                return found
+            after = page["pageInfo"]["endCursor"]
 
     def all_unresolved(self) -> list[str]:
         """First-comment URLs of every unresolved thread, across all pages."""
@@ -457,7 +483,11 @@ class Watcher:
         short = head[:7]
         mine = {who(pr)[0], pr["viewer"]}
         comments = pr["comments"]["nodes"]
+        if pr["comments"]["totalCount"] > len(comments):
+            comments = self.all_nodes("comments", COMMENT_FIELDS)
         reviews = pr["reviews"]["nodes"]
+        if pr["reviews"]["totalCount"] > len(reviews):
+            reviews = self.all_nodes("reviews", REVIEW_FIELDS)
         threads = pr["reviewThreads"]["nodes"]
         self.events = 0
 
@@ -480,10 +510,9 @@ class Watcher:
         if gate:
             gate_done = all(bucket(n) != "pending" for n in gate)
         else:
-            # No checks to gate on: the head counts as green when the repo has
-            # no workflows, or when none appeared within the grace period.
-            waited = time.time() - self.head_seen[head]
-            gate_done = not self.has_workflows(head) or waited >= NO_CHECKS_GRACE
+            # No CI checks yet: the head counts as having no CI once none
+            # appeared within the grace period.
+            gate_done = time.time() - self.head_seen[head] >= NO_CHECKS_GRACE
         all_done = gate_done and all(c["bucket"] != "pending" for c in watched.values())
         # Checks appear a few seconds after a push. Two identical polls in a row
         # guard against calling a half-registered set of checks finished.

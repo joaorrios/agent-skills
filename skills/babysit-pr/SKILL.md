@@ -20,7 +20,7 @@ pr-wait <pr> [--repo owner/name] [--until ready|green|any-change] [--bot <login>
 It prints one line per real event: a failed required check, all checks finished, a new comment, review, or thread, a review bot finishing on the head, base commits that touch this PR's files, a BEHIND or DIRTY branch, a merge or close. It exits 0 when the `--until` condition holds or the PR merges, 1 when it needs you (failed required check, conflicts, a review bot's failed review, PR closed, and for `ready` unresolved threads, a review requesting changes, or a BEHIND branch), and 2 on bad input or when another `pr-wait` already watches the PR.
 
 - `ready` (default): checks green, every review bot finished on the head, no unresolved threads, no human's latest review requesting changes, branch not BEHIND. Use this to babysit.
-- `green`: checks only: the base branch's required checks, or every CI check when none are required. A repo without CI counts as green.
+- `green`: checks only: the base branch's required checks, or every CI check when none are required. A head with no CI checks counts as green after three minutes, so a repo without CI still finishes.
 - `any-change`: exit on the first event.
 
 Pass `--bot` for each review bot the repo uses (check the bots on recent PRs), so `ready` waits for a bot that has not posted yet. Without `--bot`, `ready` counts only the bots already on the PR. CodeRabbit is advisory: reported, never waited for.
