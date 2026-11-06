@@ -1,17 +1,62 @@
 ---
 name: wake-engineering-lead
-description: Wakes João's Engineering Lead (Grok Bot) with one webhook POST when the task reaches done, blocked, or needs-joao. Use when a brief identifies the requester as the Engineering Lead or enables Lead wake.
+description: Reports to João's Engineering Lead (Grok Bot) at done, blocked, or needs-joao, on the GitHub PR the Lead follows or is handed, else by one webhook wake. Use when a brief identifies the requester as the Engineering Lead, hands you over to the Lead, or enables Lead wake.
 license: MIT
-compatibility: A shell with curl and jq. Agent id and title come from Paseo when the agent runs there.
+compatibility: A shell with curl and jq, and gh for PR comments. Agent id and title come from Paseo when the agent runs there.
 ---
 
 # Wake Engineering Lead
 
-The **Engineering Lead** is the Grok Bot that coordinates João's personal Limnar and Paseo work and hands tasks to agents like you. It stays idle until something wakes it. A **wake** is one POST to the Lead's webhook, sent when your task reaches a terminal state, so the Lead can act without polling you.
+The **Engineering Lead** is the Grok Bot that coordinates João's personal Limnar and Paseo work and hands tasks to agents like you. It acts when something wakes it, so reach it once your task reaches a terminal state, through one channel: the GitHub pull request it follows when there is one, otherwise a webhook **wake**.
 
-The wake is on when the brief comes from the Lead, with no opt-in phrase needed, or when the brief enables it; a brief that turns it off wins. When the brief points to an existing GitHub pull request, put the terminal state and summary in a comment on that PR instead: the Lead follows its PRs, and a webhook POST would only duplicate the comment. The webhook covers work with no PR, a PR you opened as the result, and briefs that ask for the webhook explicitly.
+Reaching the Lead is on when the brief comes from the Lead, with no opt-in phrase needed, when a parent agent hands you over to it ("from here you deal with the Engineering Lead"), or when the brief enables it; a brief that turns it off wins.
 
-## 1. Find the destination
+## 1. Choose the channel
+
+Choose at the start of the task, so you know where your result will go before you have one:
+
+- **PR the Lead follows.** The Lead follows a PR when its own brief handed you that PR, or when it has already commented on it. Report on that PR (step 3).
+- **PR the Lead does not follow yet.** The work has an open PR, or will end in one you open, and the Lead has not taken it: every PR you open, and every PR a parent agent or another requester named. Hand it over on the PR (step 3), with one wake so the Lead learns of it.
+- **No PR.** The work has no PR and will not produce one. Report with a webhook wake (step 4).
+
+A PR URL in a brief from anyone but the Lead is a coordinate for the work: it says where the code is, not whether the Lead follows it, and it never means the Lead can be left out.
+
+This step is complete when you know which of the three applies. When the work later gains a PR, choose again.
+
+## 2. Reach a terminal state
+
+Report only when the task ends in one of these states; progress, partial results, and questions you can answer yourself stay in your normal replies. When several apply, report the one the Lead must act on first, `needs-joao` before `blocked` before `done`, and name the others in the summary.
+
+| `state` | Meaning |
+|---|---|
+| `done` | The result is ready for the Lead: a PR ready for review, a report, a change applied. |
+| `blocked` | You cannot go on without something the Lead can supply: access, missing information, a technical call you and your reviewers could not settle, a fix outside your scope. |
+| `needs-joao` | Going on needs a product decision, which only João takes. |
+
+**When João decides.** João takes product decisions: how the product is used, its design, its strategy, and its marketing, including what a feature does, how usable it is, and which product direction to follow between alternatives. Technical decisions, such as the framework, caching, or an implementation tradeoff, are not his: make them yourself, ask a technical reviewer or advisor agent, or report `blocked` so the Lead unblocks you.
+
+Merging, spending money, and contacting people stay outside your task: when the work needs one, say so in your report, as `done` when it is the next step after finished work and `blocked` when you cannot finish without it, and the Lead takes it from there.
+
+Write a **summary** of up to three sentences the Lead can act on without opening your transcript: what is ready, what blocks you and what would unblock it, or what João must decide.
+
+## 3. Report on the PR
+
+Comment on the PR, opening with the Lead and the state so the Lead finds its part of the thread:
+
+```markdown
+**Engineering Lead** · `blocked`
+
+<summary>
+```
+
+- **PR the Lead follows:** the comment is the whole report.
+- **Handing the PR over:** add a line saying you are handing this PR to the Lead and what stays open on it, then send one wake (step 4) with the PR's URL so the Lead starts following it. From then on, the PR is the channel.
+
+This step is complete when the comment is posted and, for a handover, the wake is sent.
+
+## 4. Webhook wake
+
+### Find the destination
 
 Resolve the webhook URL and key from the first source that yields both, so a brief needs to carry neither once the host is set up:
 
@@ -23,19 +68,7 @@ Load the values straight into shell variables and use them only there: `set -a; 
 
 This step is complete when both variables are set. When no source yields both, skip the POST and say in your final reply that the Lead was not woken because no webhook is configured. Another webhook env file on the host belongs to a different consumer, so it stays out of the search.
 
-## 2. Reach a terminal state
-
-Post only when the task ends in one of these states:
-
-| `state` | Meaning |
-|---|---|
-| `done` | The result is ready for the Lead: a PR opened, a report in the reply, a change applied. |
-| `blocked` | You cannot go on without something the Lead can supply: access, missing information, a fix outside your scope. |
-| `needs-joao` | Going on needs João himself: a decision, UAT, a merge, spending money, or contacting people. |
-
-Progress, partial results, and questions you can answer from the brief stay in your normal replies. The POST is the only outward action this skill adds; merges, spending, and messages to people go to João through `needs-joao`.
-
-## 3. POST
+### POST
 
 Send this JSON body, every field present:
 
@@ -45,11 +78,11 @@ Send this JSON body, every field present:
 | `agent_id` | `$PASEO_AGENT_ID`, or the runtime's session id outside Paseo (`$CLAUDE_CODE_SESSION_ID` in Claude Code). |
 | `agent_title` | The agent's Paseo name (add `--host` to `paseo inspect` when the brief gives one), or the title the brief gave you. |
 | `state` | `done`, `blocked`, or `needs-joao`. |
-| `summary` | Up to three sentences the Lead can act on without opening your transcript: what is ready, what blocks you and what would unblock it, or what João must decide. |
-| `pr_url` | The PR's URL, or `null` when there is none. |
+| `summary` | The summary from step 2. |
+| `pr_url` | The URL of the PR you are handing over, or `null` when there is none. |
 
 ```sh
-set -a; . ~/.config/agent-wake/webhook.env; set +a  # or whichever source step 1 resolved
+set -a; . ~/.config/agent-wake/webhook.env; set +a  # or whichever source the destination resolved to
 title=$(paseo inspect "$PASEO_AGENT_ID" --json | jq -r .Name)
 jq -n --arg agent_id "$PASEO_AGENT_ID" --arg agent_title "$title" \
       --arg state "done" --arg summary "<summary>" --arg pr_url "<url or empty>" \
