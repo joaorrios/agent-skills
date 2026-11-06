@@ -13,11 +13,15 @@ The wake is on when the brief comes from the Lead, with no opt-in phrase needed,
 
 ## 1. Find the destination
 
-The brief supplies the webhook URL and its key, either inline or as a pointer, such as an env file under `/workspace/secrets/` or the names of environment variables. Use exactly the destination the brief names; another webhook file on the host belongs to a different consumer.
+Resolve the webhook URL and key from the first source that yields both, so a brief needs to carry neither once the host is set up:
 
-Keep the URL and key out of output, the reply, commits, and PR bodies: they are credentials, and the agent's transcript is visible to others. When the brief gives a pointer, load the values into shell variables from it so they stay out of command text as well.
+1. **Secret store.** When the runtime documents a secret store holding them (an OS keychain, a Paseo credential helper, or equivalent), read them through the store's own read command.
+2. **Well-known file.** `~/.config/agent-wake/webhook.env`, defining `WEBHOOK_URL` and `WEBHOOK_KEY` unless the brief renames them. When it is missing, go on to the next source; create nothing.
+3. **Brief.** The file path or variable names the brief gives.
 
-This step is complete when you know where the URL and key come from. When the brief names no destination, or the named file or variable is empty, skip the POST and say in your final reply that the Lead was not woken because the brief gave no webhook.
+Load the values straight into shell variables and use them only there: `set -a; . "$file"; set +a` for a file, the store's read command inside `$( )` for a store. They are credentials, and the transcript is visible to others: printing the file or a value (`cat`, `echo`, `printf`) puts them in it, and so does pasting a value into the reply, a commit, or a PR body.
+
+This step is complete when both variables are set. When no source yields both, skip the POST and say in your final reply that the Lead was not woken because no webhook is configured. Another webhook env file on the host belongs to a different consumer, so it stays out of the search.
 
 ## 2. Reach a terminal state
 
@@ -45,7 +49,7 @@ Send this JSON body, every field present:
 | `pr_url` | The PR's URL, or `null` when there is none. |
 
 ```sh
-set -a; . /workspace/secrets/<file-the-brief-names>.env; set +a  # defines WEBHOOK_URL, WEBHOOK_KEY unless the brief names others
+set -a; . ~/.config/agent-wake/webhook.env; set +a  # or whichever source step 1 resolved
 title=$(paseo inspect "$PASEO_AGENT_ID" --json | jq -r .Name)
 jq -n --arg agent_id "$PASEO_AGENT_ID" --arg agent_title "$title" \
       --arg state "done" --arg summary "<summary>" --arg pr_url "<url or empty>" \
