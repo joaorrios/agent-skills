@@ -13,6 +13,7 @@ Portable skills for coding agents.
 - **project-coordinator** — keeps one persistent coordinator per project that delegates to workers, verifies their results, and survives session changes and context compaction.
 - **prompt-writing**: writes one-off prompts that ask a subagent, another agent, or another model for a specific output.
 - **unhobble** — updates and simplifies context engineering for new, stronger models.
+- **wake-engineering-lead** — wakes João's Engineering Lead with one webhook POST when an agent's task ends done, blocked, or needing João.
 
 Each skill is independently installable and self-contained within its folder.
 
@@ -62,6 +63,8 @@ skills/
     references/
   unhobble/
     SKILL.md
+  wake-engineering-lead/
+    SKILL.md
 ```
 
 The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`; `approach-review` can also run an intent check with its extractor and intent reviewer. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary.
@@ -73,6 +76,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 `dev-handoff` reads and writes Figma through the Figma MCP server and needs a place to publish an HTML page the team can open. When the `design:design-handoff` skill is installed, it offers that checklist as a complement.
 
 `auditing-disk-space` targets macOS. It measures completely only when the app or terminal running the agent has Full Disk Access.
+
+`wake-engineering-lead` needs curl and jq, and a webhook URL and key that the Engineering Lead's brief supplies; the skill carries no destination of its own. Agent id and title come from Paseo when the agent runs there.
 
 `unhobble` requires access to read and edit the target material and an independent reviewer.
 
