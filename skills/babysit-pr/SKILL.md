@@ -17,15 +17,15 @@ Wait with `scripts/pr-wait` from this skill's folder (use its absolute path). Ke
 pr-wait <pr> [--repo owner/name] [--until ready|green|any-change] [--bot <login>]...
 ```
 
-It prints one line per real event: a failed required check, all checks finished, a new comment, review, or thread, a review bot finishing on the head, base commits that touch this PR's files, a BEHIND or DIRTY branch, a merge or close. It exits 0 when the `--until` condition holds or the PR merges, 1 when it needs you (failed required check, conflicts, unresolved threads, BEHIND for `ready`, PR closed), and 2 on bad input or when another `pr-wait` already watches the PR.
+It prints one line per real event: a failed required check, all checks finished, a new comment, review, or thread, a review bot finishing on the head, base commits that touch this PR's files, a BEHIND or DIRTY branch, a merge or close. It exits 0 when the `--until` condition holds or the PR merges, 1 when it needs you (failed required check, conflicts, a review bot's failed review, PR closed, and for `ready` unresolved threads, a review requesting changes, or a BEHIND branch), and 2 on bad input or when another `pr-wait` already watches the PR.
 
-- `ready` (default): required checks green, every review bot finished on the head, no unresolved threads, branch not BEHIND. Use this to babysit.
-- `green`: required checks only.
+- `ready` (default): checks green, every review bot finished on the head, no unresolved threads, no human's latest review requesting changes, branch not BEHIND. Use this to babysit.
+- `green`: checks only: the base branch's required checks, or every CI check when none are required. A repo without CI counts as green.
 - `any-change`: exit on the first event.
 
 Pass `--bot` for each review bot the repo uses (check the bots on recent PRs), so `ready` waits for a bot that has not posted yet. Without `--bot`, `ready` counts only the bots already on the PR. CodeRabbit is advisory: reported, never waited for.
 
-Some bots review only on demand. Codex (`chatgpt-codex-connector`) reviews when a PR opens or becomes ready, and again when someone comments `@codex review`. After pushing a fix, request a re-review from such a bot, or `ready` waits for a review that never comes.
+Some bots review only on demand. Codex (`chatgpt-codex-connector`) reviews when a PR opens or becomes ready, and again when someone comments `@codex review`. After pushing a fix, and when `pr-wait` reports a bot's failed review, request a new review from such a bot, or `ready` waits for a review that never comes.
 
 Run `pr-wait` through the harness's monitor (in Claude Code, the Monitor tool with `timeout_ms: 3600000`), so each line wakes you. Without a monitor, run it as one long background command that notifies you when it exits.
 
@@ -41,7 +41,7 @@ When an event needs no action, end your turn without a message. Stay quiet rathe
 
 ## Reviews
 
-Act only on checks and comments newer than the latest push. Verify every bot finding against the source before changing code. Fix real findings and CI failures, and tell repository failures apart from infrastructure flakes. When the repo documents rules for a review bot, read them before replying to its findings.
+Act on the checks of the latest push and on every finding that still applies to the current code, whenever it was posted; a finding the code already addresses needs only a reply. Verify every bot finding against the source before changing code. Fix real findings and CI failures, and tell repository failures apart from infrastructure flakes. When the repo documents rules for a review bot, read them before replying to its findings.
 
 Reply to each finding you dismiss with a short, specific reason and resolve the thread. Replies go out under the user's name, so keep them factual: what changed, or why the finding does not apply. When a comment-attribution skill such as `leaving-pr-comments` is available, post every comment through it.
 
