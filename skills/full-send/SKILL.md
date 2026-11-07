@@ -75,6 +75,6 @@ Technical decisions are yours. A **fork** is a choice you would normally bring t
 
 ## Asking at the end
 
-Hold every question until the steps are done. Then ask once, through the harness's question tool, so the thread shows it is waiting: `AskUserQuestion` in Claude Code, `request_user_input` in Codex, or the equivalent your harness has. A question in a normal message goes unseen, and the thread looks done. Put all the context in the question: the PR link, each pending blocker and what it holds back, and the options with your recommendation first.
+Hold every question until all steps or tasks are either done or blocked. Then ask once, through the harness's question tool, so the thread shows it is waiting: `AskUserQuestion` in Claude Code, `request_user_input` in Codex, or the equivalent your harness has. A question in a normal message goes unseen, and the thread looks done. Put all the context in the question: the PR link, each pending blocker and what it holds back, and the options with your recommendation first.
 
 When no question tool is available, or it returns no answer, start your final message with the questions.
