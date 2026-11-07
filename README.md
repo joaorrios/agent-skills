@@ -6,9 +6,11 @@ Portable skills for coding agents.
 
 - **approach-review** — challenges a proposed technical approach before implementation.
 - **auditing-disk-space**: finds where disk space went on a Mac with measured evidence, then removes only the paths the user explicitly authorizes.
+- **babysit-pr** — monitors a pull request through CI and review bots, fixing real findings until it is ready to merge.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
+- **full-send** — takes a change end to end, from its current state to a merged PR, while the user is away.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **project-coordinator** — keeps one persistent coordinator per project that delegates to workers, verifies their results, and survives session changes and context compaction.
 - **prompt-writing**: writes one-off prompts that ask a subagent, another agent, or another model for a specific output.
@@ -37,6 +39,10 @@ skills/
       reviewer.md
   auditing-disk-space/
     SKILL.md
+  babysit-pr/
+    SKILL.md
+    LICENSE
+    scripts/
   claude-instance-topology/
     SKILL.md
     references/
@@ -46,6 +52,9 @@ skills/
   dev-handoff/
     SKILL.md
     references/
+  full-send/
+    SKILL.md
+    LICENSE
   implementation-review/
     SKILL.md
     reviewer-models.md
@@ -67,6 +76,10 @@ skills/
 The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`; `approach-review` can also run an intent check with its extractor and intent reviewer. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary.
 
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
+
+`full-send` triggers only when the user says "full send". It needs a GitHub repository and an authenticated `gh` CLI allowed to push and merge. It reviews and tends the PR with whatever review and PR-monitoring skills the environment offers, so it installs and runs on its own. It is adapted from `full-send` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
+
+`babysit-pr` needs an authenticated `gh` CLI, and its `pr-wait` watcher needs Python 3.9+ on a POSIX system. It is adapted from `babysit-pr` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
 `project-coordinator` is invoked by the user only. It runs in Claude Code or Codex inside a git repository, and its reload hook needs a POSIX shell. Workers that outlive the coordinator's session need a runtime such as Paseo. In Cursor, Cursor Projects covers the same need.
 
@@ -97,4 +110,4 @@ Release tags use `vMAJOR.MINOR.PATCH`. Versioning is independent from installati
 
 ## License
 
-MIT
+MIT. `skills/babysit-pr` and `skills/full-send` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`.
