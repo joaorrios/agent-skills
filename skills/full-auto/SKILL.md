@@ -1,6 +1,6 @@
 ---
 name: full-auto
-description: Takes a change end to end while the user is away, ending with the PR merged or ready for the user to merge. Use only when the user says "full send" (merge) or "full stop" (stop before the merge).
+description: Use only when the user says "full send" (end with the PR merged), "full stop" (end with it ready for the user to merge), or "full auto". Takes a change end to end while the user is away.
 license: MIT
 compatibility: Git repository hosted on GitHub, with the gh CLI authenticated and allowed to push, and to merge for full send.
 ---
@@ -12,7 +12,7 @@ The user said "full send" or "full stop": they are not watching this thread and 
 - **Full send** ends with the PR merged.
 - **Full stop** ends with the PR ready for the user to merge, still open and unmerged.
 
-Both endings share every step up to the merge gate; "Endings" holds what differs. A request for "full auto" that names neither ending takes full stop, and the report says so. Without a clear request for either, keep your normal level of autonomy.
+Both endings share the steps; "Endings" holds what differs, including what each one does before step 1. A request for "full auto" that names neither ending takes full stop, and the report says so. Without a clear request for one of these, keep your normal level of autonomy.
 
 Either request grants permission to:
 
@@ -36,7 +36,7 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 2. **Prove it.** Get proof for every change in the diff. See "Proof".
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
 4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made.
-5. **Tend the PR** until the merge gate passes, with the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
+5. **Tend the PR** until the merge gate passes, or until only blockers keep it shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
 6. **Close out** with the ending the user named. See "Endings".
 7. **Report** in your final message: the PR link, your proof, the fork decisions, the pending blockers, and what the ending adds.
 
@@ -76,7 +76,7 @@ An automated review asking for human review can be dismissed when your proof giv
 ### Full stop: hand off ready
 
 - **Limits:** the PR stays unmerged. Merging, enabling auto-merge, entering a merge queue, pushing to the default branch, and asking another agent to do any of these all wait for the user.
-- **Before the first push:** disable auto-merge and take the PR out of any merge queue; check again before each push, and report what you changed. When you cannot keep the PR from merging on its own, that is a blocker holding back every push.
+- **Guard against merging on its own:** whenever the PR exists (before step 1 when it already does, right after opening it in step 4, and before each later push), disable auto-merge and take it out of any merge queue, and report what you changed. When you cannot, stop pushing and tending, and hand off at once with the **Blocked** verdict.
 - **Close out:** fetch the default branch and check the live PR: head, base, checks, reviews, and mergeability; it is open, not a draft, and not set to merge on its own. When someone else merged it, report that instead. Then give one verdict:
   - **Ready to merge:** the merge gate passes.
   - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.

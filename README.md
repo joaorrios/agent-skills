@@ -87,7 +87,7 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
-`full-auto` triggers only when the user says "full send" or "full stop". It needs a GitHub repository and an authenticated `gh` CLI allowed to push, and to merge for full send. It reviews and tends the PR with whatever review and PR-monitoring skills the environment offers, so it installs and runs on its own. It is adapted from `full-send` and `full-stop` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
+`full-auto` triggers only when the user says "full send", "full stop", or "full auto" (which takes full stop). It needs a GitHub repository and an authenticated `gh` CLI allowed to push, and to merge for full send. It reviews and tends the PR with whatever review and PR-monitoring skills the environment offers, so it installs and runs on its own. It is adapted from `full-send` and `full-stop` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
 `babysit-pr` needs an authenticated `gh` CLI, and its `pr-wait` watcher needs Python 3.9+ on a POSIX system. It is adapted from `babysit-pr` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
