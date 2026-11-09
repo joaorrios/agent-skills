@@ -37,7 +37,7 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
 4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the UAT gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
 5. **Tend the PR** until every merge-gate condition except UAT holds, or until only blockers keep them shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
-6. **Run UAT** when the UAT gate applies, once step 5 is done, on the head you will close out with. See "UAT gate" for when it runs and when it runs again.
+6. **Run UAT** when the UAT gate applies, once step 5 is done, on the head you will close out with: in the PR's first batch of work, or in a later run when the user asked for a rerun. See "UAT gate".
 7. **Close out** with the ending the user named, or full stop when the UAT gate switched it. See "Endings".
 8. **Report** in your final message: the PR link, your proof, the UAT results, the fork decisions, the pending blockers, and what the ending adds.
 
@@ -59,7 +59,7 @@ Proof and review cover the final diff: re-check behavior changes and meaningful 
 Full confidence means all of these hold on the latest commit:
 
 - Your proof covers every change in the diff.
-- When the UAT gate applies, UAT ran at the end of the latest batch of work (see "UAT gate"), and nothing from it is open: the user dismissed each finding or accepted its fix, and accepted or did each BLOCKED or INCONCLUSIVE item and each check left to them.
+- When the UAT gate applies, UAT ran on this PR and nothing from it is open: the user dismissed each finding or accepted its fix, and accepted or did each BLOCKED or INCONCLUSIVE item and each check left to them. The user also accepted each change made after the run, other than a small one, by looking at it or through a rerun.
 - Required checks are green.
 - Review bots have finished, and each finding is fixed or dismissed with a written reason.
 - No human review still requests changes.
@@ -74,10 +74,10 @@ A change that alters what the user sees or does (a feature, a screen, a flow, it
 - **How:** follow [`references/uat.md`](references/uat.md). Two testers drive the app like a user, with Playwright or Electron QA, and with computer use where the change touches the OS: one knows only what the PR promises, the other follows a script you write.
 - **Guard:** as soon as you know the gate applies, under either ending, apply full stop's guard against merging on its own (see "Full stop") and keep it until step 7. Required checks and a monitoring skill's "ready" never include UAT, so neither one is a signal to merge.
 - **Promise:** the promise tester works from the PR description's list of what changes for the user. When the PR already exists without that list, add it to the description before UAT.
-- **When:** once, at the end of a batch of work: when one or more pushes bring the PR back to ready to merge, so every merge-gate condition except UAT holds. Run it on the head you close out with. A push by itself never triggers UAT, so a series of corrections gets one run, not one per push.
-- **Running it again:** never for a small change, such as a copy, style, or one-line fix; the user looks at it instead. When the user did not approve the result and you reworked it, ask the user before running UAT again, for example: "Do you want to look at it directly, or should we rerun UAT?" After rework, run it only when the user asks for it, in that answer or in the request (see the reference).
+- **When:** once, at the end of the PR's first batch of work: after step 5, when the pushes so far have brought every merge-gate condition except UAT to hold, or left only blockers. A push by itself never triggers UAT, so a series of corrections gets one run, not one per push.
+- **Later runs:** a later full-auto run on the same PR, such as one that reworks the change after the user did not approve it, skips step 6 unless the user asked for a rerun in the request. Never rerun UAT for a small change, such as a copy, style, or one-line fix; when a small change fixes a finding, ask the user to look at it. When the later run changed more than that, ask at the end (see "Asking at the end"): "Do you want to look at it directly, or should we rerun UAT?" A rerun covers the reworked cases (see the reference).
 - **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
-- **Ending:** under full send, switch to full stop whenever a finding, a BLOCKED or INCONCLUSIVE item, or a check left to the user awaits the user's answer; you may also switch when the user should see the change before it merges. Report the switch and its reason. Fixing confirmed findings is new work for a later run, which asks the user before running UAT again.
+- **Ending:** under full send, switch to full stop whenever a finding, a BLOCKED or INCONCLUSIVE item, or a check left to the user awaits the user's answer, and whenever a change made after the run awaits the user's look; you may also switch when the user should see the change before it merges. Report the switch and its reason. Fixing confirmed findings is new work for a later run (see "Later runs").
 
 ## Endings
 
@@ -93,7 +93,7 @@ A change that alters what the user sees or does (a feature, a screen, a flow, it
 - **Guard against merging on its own:** whenever the PR exists (before step 1 when it already does, right after opening it in step 4, and before each later push), disable auto-merge and take it out of any merge queue, and report what you changed. When you cannot, stop pushing and tending, and hand off at once with the **Blocked** verdict.
 - **Close out:** fetch the default branch and check the live PR: head, base, checks, reviews, and mergeability; it is open, not a draft, and not set to merge on its own. When someone else merged it, report that instead. Then give one verdict:
   - **Ready to merge:** the merge gate passes.
-  - **Waiting for the user's UAT answers:** only the user's answers on UAT findings, BLOCKED or INCONCLUSIVE items, or checks left to them remain, with or without a required approval.
+  - **Waiting for the user's UAT answers:** only the user's answers on UAT findings, BLOCKED or INCONCLUSIVE items, checks left to them, or changes made after the run remain, with or without a required approval.
   - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.
   - **Blocked:** what keeps the gate shut, what you tried, and what is needed.
 - **Report adds:** the final head, the verdict, whether full send was switched here by the UAT gate, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
