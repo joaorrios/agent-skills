@@ -9,6 +9,7 @@ Portable skills for coding agents.
 - **babysit-pr** — monitors a pull request through CI and review bots, fixing real findings until it is ready to merge.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
+- **council** — brings in delegates from different model providers to review or give feedback, scoring each review round until they are satisfied.
 - **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
 - **full-send** — takes a change end to end, from its current state to a merged PR, while the user is away.
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
@@ -50,6 +51,9 @@ skills/
     scripts/
   codex-image/
     SKILL.md
+  council/
+    SKILL.md
+    LICENSE
   dev-handoff/
     SKILL.md
     references/
@@ -93,6 +97,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 
 `leaving-pr-comments` needs an authenticated GitHub CLI (`gh`). It is adapted from `leaving-pr-comments` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
+`council` triggers only when the user says "council". It works best with a way to start agents on other model providers, such as a multi-agent orchestrator or provider CLIs: it draws from up to three providers, with two delegates from Claude and one from each other provider, and two delegates from the same provider when only one is reachable. It is adapted from `council` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
+
 `auditing-disk-space` targets macOS. It measures completely only when the app or terminal running the agent has Full Disk Access.
 
 `unhobble` requires access to read and edit the target material and an independent reviewer.
@@ -118,4 +124,4 @@ Release tags use `vMAJOR.MINOR.PATCH`. Versioning is independent from installati
 
 ## License
 
-MIT. `skills/babysit-pr`, `skills/full-send`, and `skills/leaving-pr-comments` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`.
+MIT. `skills/babysit-pr`, `skills/council`, `skills/full-send`, and `skills/leaving-pr-comments` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`.
