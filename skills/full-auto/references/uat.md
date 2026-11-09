@@ -22,7 +22,7 @@ The script tester proves your acceptance cases; the promise tester catches your 
   | Esc where computer use reserves it, held-key auto-repeat, IME composition and dictation, human typing cadence, multi-instance setups | A person: put it on the human checklist |
 
   Synthetic input proves in-app logic but never passes through the OS; computer use proves OS routing but types faster than a person (about 0 ms between actions). Neither is evidence for what the third row lists.
-- **The human checklist:** every item from the third row, written now as a short list for the user, never discovered as BLOCKED at the end.
+- **The human checklist:** the promise items that map to the third row, if any, written now as a short list for the user, never discovered as BLOCKED at the end. A change none of whose items needs a person has no checklist.
 - **Pre-flight**, when a tester will use computer use: the host of the terminal has Accessibility and Screen Recording and was restarted after the grant; computer use is enabled for the tester's project directory; a test screenshot is not blank; the display stays awake (on macOS, `caffeinate -d -i -u` for the whole run); nobody else is using the machine; only one computer-use session is open. When the OS asks for a consent only a person can give, that is a blocker for the computer-use items.
 
 This step is complete when the build runs from the recorded commit, every promise item has a fixture section and an input tool, and the pre-flight passed for any computer-use item.
@@ -73,7 +73,7 @@ Post the UAT result in the PR and put it in your final report, a run with no fin
 - **Ground-truth evidence:** when the promise is about what the app writes (a file, a record, a request), that output compared with its state before each step; screenshots alone do not prove it.
 - **Each finding** with its class, counts, control case, and evidence, explained from zero, step by step, in plain language: what the user does, what happens, what was expected.
 - **The help log** from the promise tester: each help page consulted and whether it solved the problem.
-- **The human checklist** of what only the user can check.
+- **The human checklist** of what only the user can check, when the change has one.
 
 This step is complete when the result is posted in the PR and every finding, every BLOCKED or INCONCLUSIVE item, and every human-checklist item is in the questions for the user.
 
