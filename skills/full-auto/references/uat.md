@@ -4,7 +4,7 @@ How to run the UAT that the full-auto UAT gate requires. You are the **orchestra
 
 | Tester | Knows | Does |
 |---|---|---|
-| **Promise tester** | Only what the PR promises the user, in the words of the PR | Explores the app on its own to see whether each promise holds; consults the app's help only when stuck |
+| **Promise tester** | Only what the PR promises the user: the list of what changes for the user in the PR description | Explores the app on its own to see whether each promise holds; consults the app's help only when stuck |
 | **Script tester** | Your step-by-step script | Follows it in order and gives each step a verdict |
 
 The script tester proves your acceptance cases; the promise tester catches your blind spots: a wrong path in the script, wrong help, wrong copy. Neither alone is enough. Both get [`../agents/uat-tester.md`](../agents/uat-tester.md) as their instructions, plus their role and inputs.
@@ -39,7 +39,7 @@ This step is complete when every acceptance case of the change has a step, every
 ## 3. Run the testers
 
 - **Order:** the promise tester first, then the script tester. Run them one after the other whenever they share the screen; only one session can drive it.
-- **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and how to launch it, its fixture copy, the input tool for each item with that tool's known limits, and where to write its report. The promise tester gets the PR's promise exactly as published; the script tester gets the script.
+- **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and how to launch it, its fixture copy, the input tool for each item with that tool's known limits, the outputs it may observe as evidence (such as a file diffed against the commit noted before each step, or a record read back), and where to write its report. The promise tester gets the PR's list of what changes for the user exactly as published; the script tester gets the script.
 - **Watching:** keep a watcher on each tester that wakes you on permission prompts, questions, and the report appearing, and that reports only new events. Answer the approval prompts a tool asks on first use. Close a finished computer-use session before starting the next one, or it keeps the screen.
 
 This step is complete when both testers have written their reports, or a tester's run is recorded as blocked with the reason.
@@ -70,19 +70,19 @@ Post the UAT result in the PR and put it in your final report, a run with no fin
 
 - **What was tested:** the commit, the environment, each tester's input tool, and that tool's limits, so the user knows what a PASS does not cover.
 - **Per-item tables:** verdict, the physical action, what was observed, and the evidence files.
-- **Ground-truth evidence:** when the promise is about what the app writes, the diff of that output against its state before each step; screenshots alone do not prove it.
+- **Ground-truth evidence:** when the promise is about what the app writes (a file, a record, a request), that output compared with its state before each step; screenshots alone do not prove it.
 - **Each finding** with its class, counts, control case, and evidence, explained from zero, step by step, in plain language: what the user does, what happens, what was expected.
 - **The help log** from the promise tester: each help page consulted and whether it solved the problem.
 - **The human checklist** of what only the user can check.
 
-This step is complete when the result is posted in the PR and every finding and human-checklist item is in the questions for the user.
+This step is complete when the result is posted in the PR and every finding, every BLOCKED or INCONCLUSIVE item, and every human-checklist item is in the questions for the user.
 
-## 6. Retest confirmed fixes
-
-After the user confirms a finding and you fix it, rerun the failed and fixed cases with the same kind of tester, on the fixed commit, repeating timing-sensitive cases at least five times. Unit tests, E2E, and probes passing do not make a fix done; the retest does. Keep any automated test that comes out of a finding at the lowest layer that proves it.
-
-This step is complete when every confirmed fix passed its retest.
-
-## 7. Clean up
+## 6. Clean up
 
 Close the app under test, the tester sessions, the watchers, and anything keeping the display awake.
+
+This step is complete when nothing started for UAT is still running.
+
+## Retesting confirmed fixes in a later run
+
+The user answers after the run ends, so fixing confirmed findings is new work for a later run, which goes through the full-auto steps again. Its UAT retests the failed and fixed cases with the same kind of tester, on the fixed commit, repeating timing-sensitive cases at least five times, instead of a full two-tester run, unless the fix changes what the user sees or does beyond those cases. Unit tests, E2E, and probes passing do not make a fix done; the retest does. Keep any automated test that comes out of a finding at the lowest layer that proves it.

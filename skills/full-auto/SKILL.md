@@ -35,8 +35,8 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 1. **Finish the change.** Reach the goal of the request with the smallest change that works. Fix the case that happened, not every case that could. On the default branch, create a branch first.
 2. **Prove it.** Get proof for every change in the diff. See "Proof".
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
-4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made.
-5. **Tend the PR** until the merge gate passes, or until only blockers keep it shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
+4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the UAT gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
+5. **Tend the PR** until every merge-gate condition except UAT holds, or until only blockers keep them shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
 6. **Run UAT** when the UAT gate applies, on the head you will close out with. See "UAT gate".
 7. **Close out** with the ending the user named, or full stop when the UAT gate switched it. See "Endings".
 8. **Report** in your final message: the PR link, your proof, the UAT results, the fork decisions, the pending blockers, and what the ending adds.
@@ -59,7 +59,7 @@ Proof and review cover the final diff: re-check behavior changes and meaningful 
 Full confidence means all of these hold on the latest commit:
 
 - Your proof covers every change in the diff.
-- When the UAT gate applies, UAT ran on this commit and the user confirmed or dismissed every finding.
+- When the UAT gate applies, UAT ran on this commit, and the user has answered every finding, every BLOCKED or INCONCLUSIVE item, and every check left to them.
 - Required checks are green.
 - Review bots have finished, and each finding is fixed or dismissed with a written reason.
 - No human review still requests changes.
@@ -72,9 +72,10 @@ An automated review asking for human review can be dismissed when your proof giv
 A change that alters what the user sees or does (a feature, a screen, a flow, its usability) needs **UAT** before the ending: agents use the running app as a user would, without the user. A change the user cannot see, such as a refactor, an internal API, docs, tests, or CI, skips it; when unsure, run it.
 
 - **How:** follow [`references/uat.md`](references/uat.md). Two testers drive the app like a user, with Playwright or Electron QA, and with computer use where the change touches the OS: one knows only what the PR promises, the other follows a script you write.
-- **When:** on the head you close out with. A later commit that changes what the user sees or does needs a new run.
+- **Guard:** as soon as you know the gate applies, under either ending, apply full stop's guard against merging on its own (see "Full stop") and keep it until step 7. Required checks and a monitoring skill's "ready" never include UAT, so neither one is a signal to merge.
+- **When:** on the head you close out with. A later commit that changes what the user sees or does needs a new run; a commit that only fixes findings the user confirmed needs a retest of those cases (see the reference).
 - **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
-- **Ending:** under full send, switch to full stop whenever a finding awaits the user's confirmation or a check was left to the user; you may also switch when the user should see the change before it merges. Report the switch and its reason.
+- **Ending:** under full send, switch to full stop whenever a finding, a BLOCKED or INCONCLUSIVE item, or a check left to the user awaits the user's answer; you may also switch when the user should see the change before it merges. Report the switch and its reason. Fixing confirmed findings is new work for a later run, which retests them.
 
 ## Endings
 
@@ -90,6 +91,7 @@ A change that alters what the user sees or does (a feature, a screen, a flow, it
 - **Guard against merging on its own:** whenever the PR exists (before step 1 when it already does, right after opening it in step 4, and before each later push), disable auto-merge and take it out of any merge queue, and report what you changed. When you cannot, stop pushing and tending, and hand off at once with the **Blocked** verdict.
 - **Close out:** fetch the default branch and check the live PR: head, base, checks, reviews, and mergeability; it is open, not a draft, and not set to merge on its own. When someone else merged it, report that instead. Then give one verdict:
   - **Ready to merge:** the merge gate passes.
+  - **Waiting for the user's UAT answers:** only the user's answers on UAT findings, BLOCKED or INCONCLUSIVE items, or checks left to them remain, with or without a required approval.
   - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.
   - **Blocked:** what keeps the gate shut, what you tried, and what is needed.
 - **Report adds:** the final head, the verdict, whether full send was switched here by the UAT gate, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
