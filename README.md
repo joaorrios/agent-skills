@@ -60,6 +60,10 @@ skills/
   full-auto/
     SKILL.md
     LICENSE
+    agents/
+      uat-tester.md
+    references/
+      uat.md
   implementation-review/
     SKILL.md
     reviewer-models.md

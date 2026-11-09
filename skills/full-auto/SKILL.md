@@ -37,10 +37,11 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
 4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made.
 5. **Tend the PR** until the merge gate passes, or until only blockers keep it shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
-6. **Close out** with the ending the user named. See "Endings".
-7. **Report** in your final message: the PR link, your proof, the fork decisions, the pending blockers, and what the ending adds.
+6. **Run UAT** when the UAT gate applies, on the head you will close out with. See "UAT gate".
+7. **Close out** with the ending the user named, or full stop when the UAT gate switched it. See "Endings".
+8. **Report** in your final message: the PR link, your proof, the UAT results, the fork decisions, the pending blockers, and what the ending adds.
 
-Stay active from step 1 to step 7. Ending your turn while checks or bots are pending stops the work, because nobody will prompt you again. While waiting, keep something that wakes you when the PR changes: a PR watcher from a monitoring skill, a blocking watch such as `gh pr checks --watch`, or the harness's monitor or scheduled wake-up. Cancel any watcher you started before you stop.
+Stay active from step 1 to step 8. Ending your turn while checks or bots are pending stops the work, because nobody will prompt you again. While waiting, keep something that wakes you when the PR changes: a PR watcher from a monitoring skill, a blocking watch such as `gh pr checks --watch`, or the harness's monitor or scheduled wake-up. Cancel any watcher you started before you stop.
 
 ## Proof
 
@@ -58,12 +59,22 @@ Proof and review cover the final diff: re-check behavior changes and meaningful 
 Full confidence means all of these hold on the latest commit:
 
 - Your proof covers every change in the diff.
+- When the UAT gate applies, UAT ran on this commit and the user confirmed or dismissed every finding.
 - Required checks are green.
 - Review bots have finished, and each finding is fixed or dismissed with a written reason.
 - No human review still requests changes.
 - The branch is up to date with the default branch, and GitHub reports it as mergeable.
 
 An automated review asking for human review can be dismissed when your proof gives you high confidence; say so in the report.
+
+## UAT gate
+
+A change that alters what the user sees or does (a feature, a screen, a flow, its usability) needs **UAT** before the ending: agents use the running app as a user would, without the user. A change the user cannot see, such as a refactor, an internal API, docs, tests, or CI, skips it; when unsure, run it.
+
+- **How:** follow [`references/uat.md`](references/uat.md). Two testers drive the app like a user, with Playwright or Electron QA, and with computer use where the change touches the OS: one knows only what the PR promises, the other follows a script you write.
+- **When:** on the head you close out with. A later commit that changes what the user sees or does needs a new run.
+- **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
+- **Ending:** under full send, switch to full stop whenever a finding awaits the user's confirmation or a check was left to the user; you may also switch when the user should see the change before it merges. Report the switch and its reason.
 
 ## Endings
 
@@ -81,7 +92,7 @@ An automated review asking for human review can be dismissed when your proof giv
   - **Ready to merge:** the merge gate passes.
   - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.
   - **Blocked:** what keeps the gate shut, what you tried, and what is needed.
-- **Report adds:** the final head, the verdict, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
+- **Report adds:** the final head, the verdict, whether full send was switched here by the UAT gate, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
 
 ## Blockers
 
