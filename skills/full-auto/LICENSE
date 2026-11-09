@@ -1,6 +1,7 @@
-This skill is adapted from `full-send` in t3dotgg/tstack at commit
+This skill is adapted from `full-send` and `full-stop` in t3dotgg/tstack at commit
 1085050f3baed1ac724caa4a8166145fb2ac88af
-(https://github.com/t3dotgg/tstack/tree/1085050f3baed1ac724caa4a8166145fb2ac88af/skills/full-send).
+(https://github.com/t3dotgg/tstack/tree/1085050f3baed1ac724caa4a8166145fb2ac88af/skills/full-send and
+https://github.com/t3dotgg/tstack/tree/1085050f3baed1ac724caa4a8166145fb2ac88af/skills/full-stop).
 The original work is distributed under the MIT License below. The adaptations
 are distributed under the MIT License of this repository (see the repository's
 LICENSE).
