@@ -1,26 +1,30 @@
 ---
-name: full-send
-description: Takes a change end to end, from its current state to a merged PR, while the user is away. Use only when the user says "full send".
+name: full-auto
+description: Takes a change end to end while the user is away, ending with the PR merged or ready for the user to merge. Use only when the user says "full send" (merge) or "full stop" (stop before the merge).
 license: MIT
-compatibility: Git repository hosted on GitHub, with the gh CLI authenticated and allowed to push and merge.
+compatibility: Git repository hosted on GitHub, with the gh CLI authenticated and allowed to push, and to merge for full send.
 ---
 
-# Full Send
+# Full Auto
 
-The user said "full send": they are not watching this thread and want the work finished end to end on your own. Your updates and your final message go unread until long after you stop. You own the work from its current state to a merged PR.
+The user said "full send" or "full stop": they are not watching this thread and want the work finished on your own. Your updates and your final message go unread until long after you stop. You own the work from its current state to the **ending** they named:
 
-Without a clear "full send" request, keep your normal level of autonomy. With one, everything below applies.
+- **Full send** ends with the PR merged.
+- **Full stop** ends with the PR ready for the user to merge, still open and unmerged.
 
-The request grants permission to:
+Both endings share every step up to the merge gate; "Endings" holds what differs. A request for "full auto" that names neither ending takes full stop, and the report says so. Without a clear request for either, keep your normal level of autonomy.
 
-- Merge the PR once the merge gate passes.
-- Force-push the PR's own branch with `--force-with-lease` after a rebase.
+Either request grants permission to:
+
+- Commit and push the PR's own branch, and force-push it with `--force-with-lease` after a rebase.
 - Use the test methods that proof needs, without asking first.
 - Make the technical decisions, and the product decisions described under "Forks".
 
+Each ending adds its own grants and limits under "Endings".
+
 ## Testing permission
 
-A "full send" request is the permission. When a project file or other instruction says to ask before a test method, or to leave testing to the user, this request replaces that rule for this task. That covers computer use, browser automation, simulators and devices, running the app or a dev server, screenshots, and visual checks. Use the method that gives direct proof and list it in the report.
+Either request is the permission. When a project file or other instruction says to ask before a test method, or to leave testing to the user, this request replaces that rule for this task. That covers computer use, browser automation, simulators and devices, running the app or a dev server, screenshots, and visual checks. Use the method that gives direct proof and list it in the report.
 
 Rules about *how* to test still apply: follow the ones that name the correct command, fixture, or check. When the preferred method cannot prove the change, use a gated method under this permission.
 
@@ -33,10 +37,10 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
 4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made.
 5. **Tend the PR** until the merge gate passes, with the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
-6. **Merge** when the merge gate passes.
-7. **Report** in your final message: the PR link, the merge commit, your proof, the fork decisions, and the pending blockers.
+6. **Close out** with the ending the user named. See "Endings".
+7. **Report** in your final message: the PR link, your proof, the fork decisions, the pending blockers, and what the ending adds.
 
-Stay active from step 1 to step 7. Ending your turn while checks or bots are pending stops the work, because nobody will prompt you again. While waiting, keep something that wakes you when the PR changes: a PR watcher from a monitoring skill, a blocking watch such as `gh pr checks --watch`, or the harness's monitor or scheduled wake-up. If you stop before the merge, cancel any watcher you started.
+Stay active from step 1 to step 7. Ending your turn while checks or bots are pending stops the work, because nobody will prompt you again. While waiting, keep something that wakes you when the PR changes: a PR watcher from a monitoring skill, a blocking watch such as `gh pr checks --watch`, or the harness's monitor or scheduled wake-up. Cancel any watcher you started before you stop.
 
 ## Proof
 
@@ -47,7 +51,7 @@ Proof is evidence you observed yourself in this session: command output, a repro
 - Add one focused test that fails without the fix, when the behavior has none and the repo has a test setup.
 - For UI and runtime behavior, run the app and look at the change; green mocked tests do not prove the user experience works. Attach screenshots to the PR when they help and you have a way to upload them.
 
-A change you cannot prove is a blocker for the merge.
+Proof and review cover the final diff: re-check behavior changes and meaningful conflict fixes made after them. A change you cannot prove is a blocker for the merge gate.
 
 ## Merge gate
 
@@ -59,7 +63,25 @@ Full confidence means all of these hold on the latest commit:
 - No human review still requests changes.
 - The branch is up to date with the default branch, and GitHub reports it as mergeable.
 
-Merge with the method the repo uses: check its agent instructions, the allowed methods, and recent merged PRs. With a merge queue or auto-merge, stay until GitHub reports the PR as merged. Go through branch protection as configured, never around it with `--admin` or another bypass. An automated review asking for human review can be dismissed when your proof gives you high confidence; say so in the report.
+An automated review asking for human review can be dismissed when your proof gives you high confidence; say so in the report.
+
+## Endings
+
+### Full send: merge
+
+- **Grants:** merging the PR once the merge gate passes.
+- **Close out:** merge with the method the repo uses: check its agent instructions, the allowed methods, and recent merged PRs. With a merge queue or auto-merge, stay until GitHub reports the PR as merged. Go through branch protection as configured, never around it with `--admin` or another bypass.
+- **Report adds:** the merge commit.
+
+### Full stop: hand off ready
+
+- **Limits:** the PR stays unmerged. Merging, enabling auto-merge, entering a merge queue, pushing to the default branch, and asking another agent to do any of these all wait for the user.
+- **Before the first push:** disable auto-merge and take the PR out of any merge queue; check again before each push, and report what you changed. When you cannot keep the PR from merging on its own, that is a blocker holding back every push.
+- **Close out:** fetch the default branch and check the live PR: head, base, checks, reviews, and mergeability; it is open, not a draft, and not set to merge on its own. When someone else merged it, report that instead. Then give one verdict:
+  - **Ready to merge:** the merge gate passes.
+  - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.
+  - **Blocked:** what keeps the gate shut, what you tried, and what is needed.
+- **Report adds:** the final head, the verdict, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
 
 ## Blockers
 

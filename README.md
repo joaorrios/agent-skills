@@ -11,7 +11,7 @@ Portable skills for coding agents.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
 - **council** — brings in delegates from different model providers to review or give feedback, scoring each review round until they are satisfied.
 - **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
-- **full-send** — takes a change end to end, from its current state to a merged PR, while the user is away.
+- **full-auto** — takes a change end to end while the user is away, ending with the PR merged ("full send") or ready for the user to merge ("full stop").
 - **implementation-review** — inspects the technical aspects of a completed implementation before acceptance or shipping.
 - **leaving-pr-comments** — formats GitHub comments an agent posts on the user's behalf, opening with a callout that names the agent, the user, and the agent's role.
 - **project-coordinator** — keeps one persistent coordinator per project that delegates to workers, verifies their results, and survives session changes and context compaction.
@@ -57,7 +57,7 @@ skills/
   dev-handoff/
     SKILL.md
     references/
-  full-send/
+  full-auto/
     SKILL.md
     LICENSE
   implementation-review/
@@ -87,7 +87,7 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
-`full-send` triggers only when the user says "full send". It needs a GitHub repository and an authenticated `gh` CLI allowed to push and merge. It reviews and tends the PR with whatever review and PR-monitoring skills the environment offers, so it installs and runs on its own. It is adapted from `full-send` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
+`full-auto` triggers only when the user says "full send" or "full stop". It needs a GitHub repository and an authenticated `gh` CLI allowed to push, and to merge for full send. It reviews and tends the PR with whatever review and PR-monitoring skills the environment offers, so it installs and runs on its own. It is adapted from `full-send` and `full-stop` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
 `babysit-pr` needs an authenticated `gh` CLI, and its `pr-wait` watcher needs Python 3.9+ on a POSIX system. It is adapted from `babysit-pr` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `1085050`, MIT © Theo Browne; its folder carries that license.
 
@@ -124,4 +124,4 @@ Release tags use `vMAJOR.MINOR.PATCH`. Versioning is independent from installati
 
 ## License
 
-MIT. `skills/babysit-pr`, `skills/council`, `skills/full-send`, and `skills/leaving-pr-comments` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`.
+MIT. `skills/babysit-pr`, `skills/council`, `skills/full-auto`, and `skills/leaving-pr-comments` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`.
