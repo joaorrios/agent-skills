@@ -35,10 +35,10 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 1. **Finish the change.** Reach the goal of the request with the smallest change that works. Fix the case that happened, not every case that could. On the default branch, create a branch first.
 2. **Prove it.** Get proof for every change in the diff. See "Proof".
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
-4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the UAT gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
+4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the product validation gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
 5. **Tend the PR** until every merge-gate condition except UAT holds, or until only blockers keep them shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
-6. **Run UAT** when the UAT gate applies, once step 5 is done, on the head you will close out with: in the PR's first batch of work, or in a later run when the user asked for a rerun. See "UAT gate".
-7. **Close out** with the ending the user named, or full stop when the UAT gate switched it. See "Endings".
+6. **Run UAT** when the product validation gate applies, once step 5 is done, on the head you will close out with: in the PR's first batch of work, or in a later run when the user asked for a rerun. See "Product validation gate".
+7. **Close out** with the ending the user named, or full stop when the product validation gate switched it. See "Endings".
 8. **Report** in your final message: the PR link, your proof, the UAT results, the fork decisions, the pending blockers, and what the ending adds.
 
 Stay active from step 1 to step 8. Ending your turn while checks or bots are pending stops the work, because nobody will prompt you again. While waiting, keep something that wakes you when the PR changes: a PR watcher from a monitoring skill, a blocking watch such as `gh pr checks --watch`, or the harness's monitor or scheduled wake-up. Cancel any watcher you started before you stop.
@@ -59,7 +59,7 @@ Proof and review cover the final diff: re-check behavior changes and meaningful 
 Full confidence means all of these hold on the latest commit:
 
 - Your proof covers every change in the diff.
-- When the UAT gate applies, UAT ran on this PR and nothing from it is open: the user dismissed each finding or accepted its fix, and accepted or did each BLOCKED or INCONCLUSIVE item and each check left to them. The user also accepted each change made after the run, other than a small one, by looking at it or through a rerun.
+- When the product validation gate applies, UAT ran on this PR and nothing from it is open: the user dismissed each finding or accepted its fix, and accepted or did each BLOCKED or INCONCLUSIVE item and each check left to them. The user also accepted each change made after the run, other than a small one, by looking at it or through a rerun.
 - Required checks are green.
 - Review bots have finished, and each finding is fixed or dismissed with a written reason.
 - No human review still requests changes.
@@ -67,7 +67,7 @@ Full confidence means all of these hold on the latest commit:
 
 An automated review asking for human review can be dismissed when your proof gives you high confidence; say so in the report.
 
-## UAT gate
+## Product validation gate
 
 A change that alters what the user sees or does (a feature, a screen, a flow, its usability) needs **UAT** before the ending: agents use the running app as a user would, without the user. A change the user cannot see, such as a refactor, an internal API, docs, tests, or CI, skips it; when unsure, run it.
 
@@ -96,7 +96,7 @@ A change that alters what the user sees or does (a feature, a screen, a flow, it
   - **Waiting for the user's UAT answers:** only the user's answers on UAT findings, BLOCKED or INCONCLUSIVE items, checks left to them, or changes made after the run remain, with or without a required approval.
   - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.
   - **Blocked:** what keeps the gate shut, what you tried, and what is needed.
-- **Report adds:** the final head, the verdict, whether full send was switched here by the UAT gate, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
+- **Report adds:** the final head, the verdict, whether full send was switched here by the product validation gate, the reviewers' outcome, the remaining risks, and that the PR is still open and unmerged.
 
 ## Blockers
 

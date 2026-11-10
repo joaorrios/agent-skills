@@ -1,6 +1,6 @@
 # UAT without the user
 
-How to run the UAT that the full-auto UAT gate requires. You are the **orchestrator**: you built the change, write the script, run the two testers, and classify what they report. The testers use the running app as a user would; neither reads code to decide whether the app works.
+How to run the UAT that the full-auto product validation gate requires. You are the **orchestrator**: you built the change, write the script, run the two testers, and classify what they report. The testers use the running app as a user would; neither reads code to decide whether the app works.
 
 | Tester | Knows | Does |
 |---|---|---|
