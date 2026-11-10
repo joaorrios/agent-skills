@@ -1,6 +1,6 @@
 # UAT without the user
 
-How to run the UAT that the full-auto UAT gate requires. You are the **orchestrator**: you built the change, write the script, run the two testers, and classify what they report. The testers use the running app as a user would; neither reads code to decide whether the app works.
+How to run the UAT that the full-auto product validation gate requires. You are the **orchestrator**: you built the change, write the script, run the two testers, and classify what they report. The testers use the running app as a user would; neither reads code to decide whether the app works.
 
 | Tester | Knows | Does |
 |---|---|---|
@@ -83,6 +83,6 @@ Close the app under test, the tester sessions, the watchers, and anything keepin
 
 This step is complete when nothing started for UAT is still running.
 
-## Retesting confirmed fixes in a later run
+## Retesting reworked cases in a later run
 
-The user answers after the run ends, so fixing confirmed findings is new work for a later run, which goes through the full-auto steps again. Its UAT retests the failed and fixed cases with the same kind of tester, on the fixed commit, repeating timing-sensitive cases at least five times, instead of a full two-tester run, unless the fix changes what the user sees or does beyond those cases. Unit tests, E2E, and probes passing do not make a fix done; the retest does. Keep any automated test that comes out of a finding at the lowest layer that proves it.
+The user answers after the run ends, so fixing confirmed findings is new work for a later run, which goes through the full-auto steps again. That run skips UAT unless the user asked for a rerun in the request; otherwise it asks at the end whether the user wants to look at the change directly or have UAT run again, and a small change never gets a rerun. When the user asks for one, retest the failed and fixed cases with the same kind of tester, on the head the batch closes out with, repeating timing-sensitive cases at least five times, instead of a full two-tester run, unless the fix changes what the user sees or does beyond those cases. Unit tests, E2E, and probes passing do not make a fix done; the user's own look or the retest does. Keep any automated test that comes out of a finding at the lowest layer that proves it.
