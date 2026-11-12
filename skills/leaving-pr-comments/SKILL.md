@@ -13,18 +13,31 @@ Every comment an agent posts on GitHub on the user's behalf opens with an attrib
 
 ```md
 > [!NOTE]
-> 🤖 **<identity> responding on behalf of <user> as <role>**
+> <emoji> **<identity> responding on behalf of <user> as <role>**
 
 Actual comment starts here.
 ```
 
+- **Emoji**: marks who the agent is at a glance. Use the product's emoji when the agent runs as one of the products below, otherwise the emoji of the model family, otherwise 🤖:
+
+  | Emoji | Product or family | Callout opens with |
+  |---|---|---|
+  | 🌚 | Grok Bot (product) | 🌚 **Grok Bot** |
+  | ▶️ | Cursor (product) | ▶️ **Composer 2.5** |
+  | ⚠️ | Dots (product) | ⚠️ **<model name>** |
+  | ✴️ | Claude models | ✴️ **Claude Opus 5.5** |
+  | *️⃣ | GPT models | *️⃣ **GPT-6.1 Sol** |
+  | ❇️ | Gemini models | ❇️ **<Gemini model name>** |
+  | 🤖 | anyone else | 🤖 **<model name>** |
+
+  The emoji names the product or family; the bold identity still names the model.
 - **Identity**: the verified public name of the model that wrote the comment; when the harness exposes no model name, the harness name; when neither is known, `AI agent`. When the host or your instructions give you an identity to speak under, such as a product or role name, use that instead of the model or provider. Never guess a name.
 - **User**: the name or GitHub login of the person you act for, which may differ from the account that posts.
 - **Role**: what you do on this PR for the user, in a few words: implementer, reviewer, lead.
 
 Read the destination's visibility with `gh repo view <owner>/<repo> --json visibility -q .visibility`. Anything other than `PRIVATE`, including a failed check, gets this public form, and its identity and role carry no agent, session, or resume ids: when a given identity includes one, keep its product or role name and drop the id.
 
-This step is complete when the identity and user are verified, the role says what you do, and the callout matches the destination's visibility.
+This step is complete when the emoji matches the product or family, the identity and user are verified, the role says what you do, and the callout matches the destination's visibility.
 
 ## 2. Add resume context on private repositories
 
@@ -32,7 +45,7 @@ On a `PRIVATE` repository, you may add one line inside the note so an authorized
 
 ```md
 > [!NOTE]
-> 🤖 **<identity> responding on behalf of <user> as <role>**
+> <emoji> **<identity> responding on behalf of <user> as <role>**
 > <harness> · <agent or session> `<id>` · resume: `<command>`
 ```
 
@@ -42,7 +55,7 @@ This step is complete when every value on the line came from the harness, or the
 
 ## 3. Write the comment
 
-Keep the attribution inside the note and the actual reply outside it. The attribution line starts with the robot emoji. Do not add a horizontal rule, Setext underline, heading, signature footer, or a second attribution.
+Keep the attribution inside the note and the actual reply outside it. The attribution line starts with the emoji from step 1. Do not add a horizontal rule, Setext underline, heading, signature footer, or a second attribution.
 
 When the host requires comments posted under the user's name to begin with a prefix such as `Bot: `, write the prefix exactly as the host specifies it, trailing space included, as the first line, then a blank line, then the callout, so the comment keeps the host's prefix and the callout still renders.
 
