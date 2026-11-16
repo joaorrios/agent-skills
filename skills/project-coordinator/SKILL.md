@@ -34,9 +34,9 @@ never this protocol, the role, or the whole state.
 | What | Where | Changes when |
 |---|---|---|
 | Protocol | this skill | the skill is updated |
-| State and project agreements | `.agents/coordinator/state.md` | something important changes |
+| State and project agreements | `.agents/coordinator/state.md`, where `.agents/coordinator` may be a folder or a link to one ([`references/state-place.md`](references/state-place.md)) | something important changes |
 | Done and dropped work | `.agents/coordinator/archive.md`, same versioning and commit as the state | a task or initiative ends |
-| History and evidence | `git log`, `chore(coordinator): …` commits | every checkpoint |
+| History and evidence | `git log` of the repository that holds the state, `chore(coordinator): …` commits | every checkpoint |
 | Product decisions and specs | wherever the project keeps them | the user approves them |
 
 Keep each fact in one place: the state cites the file, commit, or section
@@ -61,7 +61,8 @@ for `archive.md`. Rules: [`references/initiatives.md`](references/initiatives.md
 1. Read `.agents/coordinator/state.md` whole. When it does not exist,
    create it from [`references/state-template.md`](references/state-template.md),
    ask the user for the objective, its initiatives, and the agreements the
-   template lists, and commit it. When it lacks a section, line, or column
+   template lists, and commit it as [`references/state-place.md`](references/state-place.md)
+   says. When it lacks a section, line, or column
    the template has, add it (the "Paseo agent" line only in Paseo).
 2. Register this session. When the state names another one, move it,
    with its "Paseo agent" value, to "Previous sessions". In Paseo, add or
@@ -125,7 +126,8 @@ for `archive.md`. Rules: [`references/initiatives.md`](references/initiatives.md
   a block, or an interruption changes, and before long waits. Compaction
   gives no warning.
 - Commit the state, with `archive.md` when it changed, alone:
-  `chore(coordinator): <what changed>`, never mixed with worker code.
+  `chore(coordinator): <what changed>`, never mixed with worker code, in
+  the repository that holds it ([`references/state-place.md`](references/state-place.md)).
 - Keep the state short: done items leave "Now" for `archive.md`; detail
   stays in its source file.
 - Label every claim: **decided** (the user approved, with the date),
