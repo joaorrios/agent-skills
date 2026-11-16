@@ -12,7 +12,7 @@ Inspect the repository and runtime evidence needed to test the approach's claims
 
 Remain read-only. Surface substantive findings for the author to resolve rather than rewriting the approach yourself.
 
-For each substantive finding, report the decision or assumption at issue, the evidence or concrete failure scenario, and the resulting impact.
+For each substantive finding, report the decision or assumption at issue, the evidence or concrete failure scenario, and the resulting impact, including whether it occurs on the common path or only in a rare case, and what the user sees.
 
 Lead with findings. If there are no substantive findings, return exactly:
 
