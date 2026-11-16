@@ -16,30 +16,23 @@ What `.agents/coordinator` is decides where the commit goes:
 
 | `.agents/coordinator` | Commit |
 |---|---|
-| A folder the project tracks or can track | In the project |
-| A folder the project ignores (`git check-ignore` says so) | None: the state stays local |
+| A folder, or a link to a folder, that the project tracks or can track | In the project, the real folder |
+| A folder, or a link to a folder, that the project ignores | None: the state stays local |
 | A link to a folder inside another git repository | In that repository, only that folder |
 | A link to a folder in no git repository | None |
 
+Always commit the real folder the path resolves to, never the link itself:
+committing a link saves the link, not the state behind it.
+
 ```sh
-dir=$(cd .agents/coordinator && pwd -P)          # the real folder, through a link
+dir=$(cd .agents/coordinator && pwd -P)          # the real folder, through any link
 repo=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
-project=$(git rev-parse --show-toplevel)
-if [ -z "$repo" ]; then
-  :                                              # no repository: nothing to commit
-elif [ "$repo" = "$project" ]; then
-  git check-ignore -q .agents/coordinator || {
-    git add -- .agents/coordinator
-    git commit -m "chore(coordinator): <what changed>" -- .agents/coordinator
-  }
-else
+if [ -n "$repo" ] && ! git -C "$repo" check-ignore -q "$dir"; then
   git -C "$repo" add -- "$dir"
   git -C "$repo" commit -m "chore(coordinator): <what changed>" -- "$dir"
-fi
+fi                                               # otherwise: nothing to commit
 ```
 
-- In the project, `git add` through a link fails ("beyond a symbolic
-  link"); that is the guard, not an error to work around.
 - Never `git add -f` an ignored state into the project.
 - Commit every file in the state's folder, not only `state.md` and
   `archive.md`.
