@@ -12,7 +12,7 @@ Inspect the change and enough surrounding code or runtime evidence to test what 
 
 Remain read-only. Surface substantive findings for the implementer to resolve rather than changing the implementation yourself.
 
-For each substantive finding, report the concrete location or affected behavior, what is technically wrong, the evidence supporting the finding, and the resulting impact.
+For each substantive finding, report the concrete location or affected behavior, what is technically wrong, the evidence supporting the finding, and the resulting impact, including whether it occurs on the common path or only in a rare case, and what the user sees.
 
 Lead with findings. If there are no substantive findings, return exactly:
 
