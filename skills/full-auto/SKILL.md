@@ -34,9 +34,9 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 
 1. **Finish the change.** Reach the goal of the request with the smallest change that works. Fix the case that happened, not every case that could. On the default branch, create a branch first.
 2. **Prove it.** Get proof for every change in the diff. See "Proof".
-3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
+3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason. A rare case (a real defect off the common path that keeps today's behavior) whose fix is not easy follows the repo's policy for rare cases; without one, it goes into the questions at the end (see "Asking at the end").
 4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the product validation gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
-5. **Tend the PR** until every merge-gate condition except UAT holds, or until only blockers keep them shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
+5. **Tend the PR** until every merge-gate condition except UAT holds, or until only blockers keep them shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Resolve review findings as step 3 does and fix CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
 6. **Run UAT** when the product validation gate applies, once step 5 is done, on the head you will close out with: in the PR's first batch of work, or in a later run when the user asked for a rerun. See "Product validation gate".
 7. **Close out** with the ending the user named, or full stop when the product validation gate switched it. See "Endings".
 8. **Report** in your final message: the PR link, your proof, the UAT results, the fork decisions, the pending blockers, and what the ending adds.
@@ -61,7 +61,7 @@ Full confidence means all of these hold on the latest commit:
 - Your proof covers every change in the diff.
 - When the product validation gate applies, UAT ran on this PR and nothing from it is open: the user dismissed each finding or accepted its fix, and accepted or did each BLOCKED or INCONCLUSIVE item and each check left to them. The user also accepted each change made after the run, other than a small one, by looking at it or through a rerun.
 - Required checks that run on the PR are green, and the workflow commands of those that run only once a merge is requested pass locally (see "Proof").
-- Review bots have finished, and each finding is fixed or dismissed with a written reason.
+- Review bots have finished, and each finding is resolved as step 3 describes.
 - No human review still requests changes.
 - The branch is up to date with the default branch, and GitHub reports it as mergeable.
 
@@ -112,6 +112,6 @@ Technical decisions are yours. A **fork** is a choice you would normally bring t
 
 ## Asking at the end
 
-Hold every question until all steps or tasks are either done or blocked. Then ask once, through the harness's question tool, so the thread shows it is waiting: `AskUserQuestion` in Claude Code, `request_user_input` in Codex, or the equivalent your harness has. A question in a normal message goes unseen, and the thread looks done. Put all the context in the question: the PR link, each pending blocker and what it holds back, and the options with your recommendation first.
+Hold every question until every step is done or blocked, so a question never stops work it does not block. The steps cover what the request asked for; a rare case from review follows step 3. Then ask once, through the harness's question tool, so the thread shows it is waiting: `AskUserQuestion` in Claude Code, `request_user_input` in Codex, or the equivalent your harness has. A question in a normal message goes unseen, and the thread looks done. Put all the context in the question: the PR link, each pending blocker and what it holds back, and the options with your recommendation first.
 
 When no question tool is available, or it returns no answer, start your final message with the questions.
