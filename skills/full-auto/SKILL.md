@@ -50,7 +50,7 @@ Proof is evidence you observed yourself in this session: command output, a repro
 - Reproduce the original failure, apply the fix, then watch the same reproduction pass.
 - Run the checks the repo's CI runs (typecheck, lint, tests).
 - Add one focused test that fails without the fix, when the behavior has none and the repo has a test setup.
-- For UI and runtime behavior, run the app and look at the change; green mocked tests do not prove the user experience works. Attach screenshots to the PR when they help and you have a way to upload them.
+- For UI and runtime behavior, run the app and look at the change; green mocked tests do not prove the user experience works. Attach screenshots to the PR when they help, with `gh pr comment <n> --body-file <file> --attach <media>`.
 
 Proof and review cover the final diff: re-check behavior changes and meaningful conflict fixes made after them. A change you cannot prove is a blocker for the merge gate.
 
