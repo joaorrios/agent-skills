@@ -64,6 +64,8 @@ skills/
       uat-tester.md
     references/
       uat.md
+    scripts/
+      uat-lock
   implementation-review/
     SKILL.md
     reviewer-models.md

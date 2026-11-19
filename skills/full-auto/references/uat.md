@@ -38,6 +38,7 @@ This step is complete when every acceptance case of the change has a step, every
 
 ## 3. Run the testers
 
+- **Your turn:** before opening the app to test, run `uat-lock run -- <test command>` ([`../scripts/uat-lock`](../scripts/uat-lock)) and wait your turn. It runs one UAT at a time on the machine, in order of arrival, once the 1-minute load average is below 8; `uat-lock status` shows the queue.
 - **Order:** the promise tester first, then the script tester. Run them one after the other whenever they share the screen; only one session can drive it.
 - **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and how to launch it, its fixture copy, the input tool for each item with that tool's known limits, the outputs it may observe as evidence (such as a file diffed against the commit noted before each step, or a record read back), and where to write its report. The promise tester gets the PR's list of what changes for the user exactly as published; the script tester gets the script.
 - **Watching:** keep a watcher on each tester that wakes you on permission prompts, questions, and the report appearing, and that reports only new events. Answer the approval prompts a tool asks on first use. Close a finished computer-use session before starting the next one, or it keeps the screen.
@@ -66,7 +67,13 @@ This step is complete when every finding has a class, counts, and the evidence b
 
 ## 5. Report to the user
 
-Post the UAT result in the PR and put it in your final report, a run with no findings included:
+Post the UAT result in the PR yourself and put it in your final report, a run with no findings included:
+
+- **PR body:** put the evidence in it with `gh pr edit <n> --body-file <file> --attach <media>`: one video, or one screenshot when there is no video, never both. The video sits alone in its paragraph, as `![](PATH/TO/VIDEO)` with the same file passed to `--attach`, so it renders as a player.
+- **PR comment:** the full report, the trace, and the other media, with `gh pr comment <n> --body-file <report> --attach ...`.
+
+`--attach` needs gh 2.103 or later and push access to the repository; see [Attaching files with GitHub CLI](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli). The report covers:
+
 
 - **What was tested:** the commit, the environment, each tester's input tool, and that tool's limits, so the user knows what a PASS does not cover.
 - **Per-item tables:** verdict, the physical action, what was observed, and the evidence files.
