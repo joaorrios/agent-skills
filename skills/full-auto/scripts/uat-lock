@@ -5,11 +5,11 @@ Usage:
   uat-lock run -- <command...>   wait for your turn, then run the command
   uat-lock status                show the running UAT, the queue, and the load
 
-One UAT runs at a time: the holder keeps a kernel lock (flock) on run.lock, and
-the kernel drops it when the holder's process dies. Waiters queue as numbered
-tickets, each also held with flock, so a dead waiter leaves the queue on its
-own. Only the head of the queue may take the run lock, and it starts only when
-the 1-minute load average is below the limit (default 8).
+One UAT runs at a time: the holder and its command keep a kernel lock (flock)
+on run.lock, and the kernel drops it when both processes have died. Waiters
+queue as numbered tickets, each also held with flock, so a dead waiter leaves
+the queue on its own. Only the head of the queue may take the run lock, and it
+starts only when the 1-minute load average is below the limit (default 8).
 
 Environment: UAT_LOCK_DIR (default ~/.local/state/uat-lock),
 UAT_LOCK_MAX_LOAD (default 8), UAT_LOCK_POLL (seconds, default 2).
@@ -179,10 +179,14 @@ def cmd_run(cmd):
         tfd = None
         say("ticket %d: your turn (load %.2f); running: %s" % (seq, load1(), " ".join(cmd)))
         try:
-            child["p"] = subprocess.Popen(cmd)
+            # The child inherits the run lock, so killing only this wrapper
+            # cannot admit the next UAT while the test command still runs.
+            child["p"] = subprocess.Popen(cmd, pass_fds=(run_fd,))
         except OSError as e:
             say("cannot run %s: %s" % (cmd[0], e))
             return 127
+        with open(RUN_LOCK + ".info", "w") as f:
+            f.write("%s child=%d\n" % (info, child["p"].pid))
         while True:
             try:
                 rc = child["p"].wait()
