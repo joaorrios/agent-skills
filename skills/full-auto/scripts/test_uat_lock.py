@@ -440,5 +440,50 @@ class UatLockTest(unittest.TestCase):
         self.release(h)
         self.finish(h)
 
+    def test_paths_with_space_hyphen(self):
+        self.set_ps([
+            (840, 1, "01:00", "/w/My - Project/node_modules/electron/dist/electron ."),
+            (841, 1, "01:00", "/w/Mac - Project/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --inspect ."),
+            (850, 1, "02:00", "/w/CI - Runner/bin/Runner.Worker spawnclient 1 2"),
+        ])
+        out = self.status()
+        self.assertIn("ci runner: active Runner.Worker pid 850, elapsed 02:00", out)
+        self.assertIn("electron: pid 840, elapsed 01:00, OUT-OF-QUEUE, worktree /w/My - Project,", out)
+        self.assertIn("electron: pid 841, elapsed 01:00, OUT-OF-QUEUE, worktree /w/Mac - Project,", out)
+        p = self.start("run", "--", "echo", "ADMITTED", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "Runner.Worker pid 850")
+        self.wait_err(p, "out-of-queue Electron pid 840 (worktree /w/My - Project,")
+        self.wait_err(p, "out-of-queue Electron pid 841 (worktree /w/Mac - Project,")
+        self.set_ps([])
+        rc, out, _ = self.finish(p)
+        self.assertEqual((rc, out), (0, "ADMITTED\n"))
+
+    def test_known_paths_as_launcher_arguments_are_not_misread(self):
+        self.set_ps([
+            (860, 1, "01:00", "/bin/sh -c /w/CI - Runner/bin/Runner.Worker spawnclient"),
+            (861, 1, "01:00", "/usr/bin/env /w/My - Project/node_modules/electron/dist/electron ."),
+        ])
+        out = self.status()
+        self.assertIn("ci runner: idle", out)
+        self.assertIn("electron: none", out)
+
+    def test_queued_hold_cancels_when_eof_lands_while_blocked_on_queue(self):
+        a = self.start("hold")
+        self.wait_ready(a)
+        b = self.start("hold")
+        self.wait_err(b, "waiting for the running holder")
+        guard = os.open(os.path.join(self.dir, "queue.lock"), os.O_RDWR)
+        try:
+            fcntl.flock(guard, fcntl.LOCK_EX)
+            time.sleep(1)  # b finishes its poll and blocks on queue.lock
+            self.release(b)
+            self.release(a)
+            self.assertEqual(self.finish(a)[0], 0)
+        finally:
+            fcntl.flock(guard, fcntl.LOCK_UN)
+            os.close(guard)
+        self.assert_cancelled(b)
+        self.assertTrue(self.run_lock_free())
+
 if __name__ == "__main__":
     unittest.main()
