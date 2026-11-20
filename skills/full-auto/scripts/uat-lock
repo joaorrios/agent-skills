@@ -1,21 +1,44 @@
 #!/usr/bin/env python3
-"""uat-lock: run one UAT at a time on this machine, in arrival order.
+"""uat-lock: one queue for every local UAT and Electron test run on this machine.
 
 Usage:
-  uat-lock run -- <command...>   wait for your turn, then run the command
-  uat-lock status                show the running UAT, the queue, and the load
+  uat-lock run [--label <text>] -- <command...>
+      Wait for your turn, run the command, release when it exits.
+  uat-lock hold [--label <text>]
+      Wait for your turn, print READY on stdout, and hold the turn until stdin
+      reaches EOF or the process gets SIGTERM/SIGINT/SIGHUP. For harnesses
+      (Node, Playwright) that hold the turn for an exact Electron session:
+      spawn it with a stdin pipe, wait for READY, close stdin (or kill it) when
+      done. A crash or SIGKILL releases the turn too.
+  uat-lock status
+      Show the load, the CI runner, the running holder, Electron test
+      processes (in-queue or OUT-OF-QUEUE), and the queue.
 
-One UAT runs at a time: the holder and its command keep a kernel lock (flock)
-on run.lock, and the kernel drops it when both processes have died. Waiters
-queue as numbered tickets, each also held with flock, so a dead waiter leaves
-the queue on its own. Only the head of the queue may take the run lock, and it
-starts only when the 1-minute load average is below the limit (default 8).
+One holder at a time: the holder (and, for run, its command) keeps a kernel
+lock (flock) on run.lock, which the kernel drops when they die. Waiters queue
+as numbered tickets in tickets/, each held with flock, so a dead waiter leaves
+the queue on its own. Only the head of the queue takes run.lock, and it starts
+once every gate is open:
+  - the 1-minute load average is below UAT_LOCK_MAX_LOAD (default 8);
+  - no GitHub Actions Runner.Worker job is running (skipped inside a CI job,
+    with GITHUB_ACTIONS=true, or with UAT_LOCK_IGNORE_RUNNER=1);
+  - no Electron test process runs outside the holder's process tree (skipped
+    with UAT_LOCK_IGNORE_ELECTRON=1).
 
-Environment: UAT_LOCK_DIR (default ~/.local/state/uat-lock),
-UAT_LOCK_MAX_LOAD (default 8), UAT_LOCK_POLL (seconds, default 2).
+Re-entrancy: the command of `run` gets UAT_LOCK_HELD=1 and
+UAT_LOCK_HOLDER_PID=<holder pid>; `hold` prints that pid on stderr for its
+caller to export. A nested run or hold that sees these variables passes
+through without queueing once it verifies that run.lock is held by that pid
+and that the pid (or the process that started `hold`) is its ancestor.
+
+Environment: UAT_LOCK_DIR (default ~/.local/state/uat-lock), UAT_LOCK_MAX_LOAD,
+UAT_LOCK_POLL (seconds, default 2). Test hooks: UAT_LOCK_PS_FILE (a file in
+`ps -axo pid=,ppid=,etime=,command=` format used instead of ps) and
+UAT_LOCK_LOAD_FILE (a file holding the load average), both re-read each poll.
 """
 import fcntl
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -28,6 +51,12 @@ TICKETS = os.path.join(LOCK_DIR, "tickets")
 GUARD = os.path.join(LOCK_DIR, "queue.lock")
 COUNTER = os.path.join(LOCK_DIR, "next")
 RUN_LOCK = os.path.join(LOCK_DIR, "run.lock")
+INFO = RUN_LOCK + ".info"
+
+# Launch wrappers skipped when naming who started an Electron process.
+WRAPPERS = {"sh", "bash", "zsh", "dash", "fish", "env", "node", "npm", "npx", "pnpm",
+            "yarn", "bun", "electron", "Electron", "timeout", "caffeinate", "xargs",
+            "tee", "script", "nohup"}
 
 
 def say(msg):
@@ -35,20 +64,142 @@ def say(msg):
     sys.stderr.flush()
 
 
+def now():
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def load1():
+    path = os.environ.get("UAT_LOCK_LOAD_FILE")
+    if path:
+        try:
+            with open(path) as f:
+                return float(f.read().strip())
+        except (OSError, ValueError):
+            pass
     return os.getloadavg()[0]
 
 
-class Guard(object):
-    """Exclusive flock on queue.lock around every queue read or write."""
+# ---------------------------------------------------------------- processes
 
-    def __enter__(self):
-        self.fd = os.open(GUARD, os.O_RDWR | os.O_CREAT, 0o644)
-        fcntl.flock(self.fd, fcntl.LOCK_EX)
-        return self
+class Proc(object):
+    __slots__ = ("pid", "ppid", "etime", "cmd")
 
-    def __exit__(self, *exc):
-        os.close(self.fd)
+    def __init__(self, pid, ppid, etime, cmd):
+        self.pid, self.ppid, self.etime, self.cmd = pid, ppid, etime, cmd
+
+    @property
+    def exe(self):
+        return self.cmd.split(" ", 1)[0]
+
+    @property
+    def base(self):
+        return os.path.basename(self.exe)
+
+
+def process_table():
+    """{pid: Proc} from UAT_LOCK_PS_FILE when set, else from ps."""
+    path = os.environ.get("UAT_LOCK_PS_FILE")
+    if path:
+        try:
+            with open(path) as f:
+                text = f.read()
+        except OSError:
+            text = ""
+    else:
+        try:
+            text = subprocess.check_output(
+                ["ps", "-axww", "-o", "pid=,ppid=,etime=,command="],
+                universal_newlines=True, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError):
+            text = ""
+    table = {}
+    for line in text.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 4:
+            continue
+        try:
+            pid, ppid = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        table[pid] = Proc(pid, ppid, parts[2], parts[3])
+    return table
+
+
+def ancestors(pid, table, include_self=True):
+    """pid's ancestor chain, nearest first."""
+    out, seen = [], set()
+    cur = pid if include_self else (table[pid].ppid if pid in table else None)
+    while cur and cur not in seen and cur in table:
+        seen.add(cur)
+        out.append(cur)
+        cur = table[cur].ppid
+    return out
+
+
+def is_runner_worker(p):
+    return p.base == "Runner.Worker"
+
+
+def inside_runner(table):
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        return True
+    return any(is_runner_worker(table[a]) for a in ancestors(os.getpid(), table))
+
+
+def is_electron_test(p):
+    """An Electron main process started for a test or QA, never a desktop app."""
+    cmd = p.cmd
+    if cmd.startswith("/Applications/") or "--type=" in cmd:
+        return False
+    if p.exe.endswith("Electron.app/Contents/MacOS/Electron") and "/node_modules/" in p.exe:
+        return True
+    if p.base in ("Electron", "electron", "node"):
+        return "out/main/index.js" in cmd or "electron/loader.js" in cmd
+    return False
+
+
+def electron_roots(table):
+    """Electron test processes, without the ones started by another of them."""
+    hits = {pid for pid, p in table.items() if is_electron_test(p)}
+    return [table[pid] for pid in sorted(hits)
+            if not any(a in hits for a in ancestors(pid, table, include_self=False))]
+
+
+def worktree_of(p):
+    if "/node_modules/" in p.cmd:
+        return p.cmd.split("/node_modules/")[0].split(" ")[-1] or "?"
+    m = re.search(r"(\S*)/out/main/index\.js", p.cmd)
+    return (m.group(1) or ".") if m else "?"
+
+
+def short(cmd, width=80):
+    cmd = cmd.replace(os.path.expanduser("~"), "~")
+    return cmd if len(cmd) <= width else cmd[:width - 3] + "..."
+
+
+def launcher_of(p, table):
+    for a in ancestors(p.pid, table, include_self=False):
+        q = table[a]
+        if q.pid == 1:
+            return None
+        if q.base not in WRAPPERS and not is_electron_test(q):
+            return q
+    return None
+
+
+# ------------------------------------------------------------------- holder
+
+def parse_info(text):
+    head = text.split(" since=", 1)[0]
+    return {k: int(v) for k, v in re.findall(r"\b(ticket|pid|owner|child)=(\d+)", head)}
+
+
+def read_info(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
 
 
 def held_by_someone(path):
@@ -66,12 +217,46 @@ def held_by_someone(path):
         os.close(fd)
 
 
-def read_info(path):
+def holder_pids():
+    """Roots of the current holder's process tree, or an empty set."""
+    if not held_by_someone(RUN_LOCK):
+        return set()
+    return {v for k, v in parse_info(read_info(INFO)).items() if k != "ticket" and v > 0}
+
+
+def inherited_turn():
+    """True when an ancestor verifiably holds run.lock for this process tree."""
+    if os.environ.get("UAT_LOCK_HELD") != "1":
+        return False
     try:
-        with open(path) as f:
-            return f.read().strip()
-    except OSError:
-        return ""
+        hp = int(os.environ.get("UAT_LOCK_HOLDER_PID", ""))
+    except ValueError:
+        hp = 0
+    info = parse_info(read_info(INFO))
+    roots = {hp, info.get("owner", 0)} - {0}
+    chain = set(ancestors(os.getpid(), process_table()))
+    if hp and info.get("pid") == hp and held_by_someone(RUN_LOCK) and roots & chain:
+        say("pid %d holds the turn for this process tree; passing through" % hp)
+        return True
+    say("UAT_LOCK_HELD is set but pid %s does not hold run.lock as an ancestor; queueing"
+        % (hp or "?"))
+    os.environ.pop("UAT_LOCK_HELD", None)
+    os.environ.pop("UAT_LOCK_HOLDER_PID", None)
+    return False
+
+
+# -------------------------------------------------------------------- queue
+
+class Guard(object):
+    """Exclusive flock on queue.lock around every queue read or write."""
+
+    def __enter__(self):
+        self.fd = os.open(GUARD, os.O_RDWR | os.O_CREAT, 0o644)
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        os.close(self.fd)
 
 
 def live_tickets(mine=None):
@@ -94,7 +279,7 @@ def setup():
     os.makedirs(TICKETS, exist_ok=True)
 
 
-def take_ticket(cmd):
+def take_ticket(what):
     with Guard():
         try:
             with open(COUNTER) as f:
@@ -106,8 +291,7 @@ def take_ticket(cmd):
         name = "%012d.lock" % seq
         fd = os.open(os.path.join(TICKETS, name), os.O_RDWR | os.O_CREAT | os.O_TRUNC, 0o644)
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        os.write(fd, ("pid=%d since=%s cmd=%s\n" % (
-            os.getpid(), time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(cmd))).encode())
+        os.write(fd, ("pid=%d since=%s %s\n" % (os.getpid(), now(), what)).encode())
     return seq, name, fd
 
 
@@ -120,17 +304,110 @@ def drop_ticket(name, fd):
     os.close(fd)
 
 
-def cmd_run(cmd):
-    if not cmd:
-        say("usage: uat-lock run -- <command...>")
-        return 2
-    setup()
-    seq, name, tfd = take_ticket(cmd)
-    run_fd = None
-    child = {"p": None}
+def gate_reasons(ignore_runner, ignore_electron):
+    """(load, [(key, text)]) for every closed gate, the holder being this process."""
+    load = load1()
+    reasons = []
+    if load >= MAX_LOAD:
+        reasons.append(("load", "load %.2f to drop below %g" % (load, MAX_LOAD)))
+    if ignore_runner and ignore_electron:
+        return load, reasons
+    table = process_table()
+    if not ignore_runner:
+        for p in sorted(table.values(), key=lambda p: p.pid):
+            if is_runner_worker(p):
+                reasons.append(("runner %d" % p.pid, "CI job to finish (Runner.Worker pid %d, running %s)"
+                                % (p.pid, p.etime)))
+    if not ignore_electron:
+        mine = os.getpid()
+        for p in electron_roots(table):
+            if mine not in ancestors(p.pid, table):
+                reasons.append(("electron %d" % p.pid,
+                                "out-of-queue Electron pid %d (worktree %s, running %s) to exit"
+                                % (p.pid, worktree_of(p), p.etime)))
+    return load, reasons
 
+
+class Turn(object):
+    """Queue, wait for run.lock and the gates, then hold run.lock until released."""
+
+    def __init__(self, mode, label, what):
+        self.mode, self.label, self.what = mode, label, what
+        self.seq = self.name = self.tfd = self.run_fd = None
+        self.owner = os.getppid() if mode == "hold" else 0
+
+    def info(self, child=0):
+        return "ticket=%d pid=%d owner=%d child=%d mode=%s since=%s %s" % (
+            self.seq, os.getpid(), self.owner, child, self.mode, self.since, self.what)
+
+    def write_info(self, child=0):
+        with open(INFO, "w") as f:
+            f.write(self.info(child) + "\n")
+
+    def acquire(self):
+        setup()
+        self.since = now()
+        self.seq, self.name, self.tfd = take_ticket(self.what)
+        table = process_table()
+        ignore_runner = os.environ.get("UAT_LOCK_IGNORE_RUNNER") == "1" or inside_runner(table)
+        ignore_electron = os.environ.get("UAT_LOCK_IGNORE_ELECTRON") == "1"
+        last_key, last_print = None, 0.0
+        seq = self.seq
+        while True:
+            with Guard():
+                live = live_tickets(mine=self.name)
+            pos = live.index(self.name)
+            if pos > 0:
+                key = ("queue", pos)
+                status = "ticket %d: position %d in queue (%d ahead); load %.2f" % (seq, pos + 1, pos, load1())
+            else:
+                if self.run_fd is None:
+                    fd = os.open(RUN_LOCK, os.O_RDWR | os.O_CREAT, 0o644)
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        self.run_fd = fd
+                        self.write_info()
+                    except OSError:
+                        os.close(fd)
+                if self.run_fd is None:
+                    key = ("running",)
+                    status = "ticket %d: next in line, waiting for the running holder (%s) to finish" % (
+                        seq, " ".join(read_info(INFO).split()[:2]) or "starting")
+                else:
+                    load, reasons = gate_reasons(ignore_runner, ignore_electron)
+                    if not reasons:
+                        break
+                    key = tuple(k for k, _ in reasons)
+                    status = "ticket %d: next in line, waiting for %s" % (
+                        seq, "; ".join(t for _, t in reasons))
+            t = time.time()
+            if key != last_key or t - last_print >= 30:
+                say(status)
+                last_key, last_print = key, t
+            time.sleep(POLL)
+        drop_ticket(self.name, self.tfd)
+        self.tfd = None
+        self.write_info()
+
+    def release(self):
+        if self.tfd is not None:
+            try:
+                drop_ticket(self.name, self.tfd)
+            except OSError:
+                pass
+            self.tfd = None
+        if self.run_fd is not None:
+            try:
+                os.unlink(INFO)
+            except OSError:
+                pass
+            os.close(self.run_fd)
+            self.run_fd = None
+
+
+def install_signals(child):
     def on_signal(signum, frame):
-        p = child["p"]
+        p = child.get("p")
         if p is not None and p.poll() is None:
             p.send_signal(signum)
             return
@@ -139,84 +416,104 @@ def cmd_run(cmd):
     for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(s, on_signal)
 
-    last_status = None
-    last_print = 0.0
-    try:
-        while True:
-            with Guard():
-                live = live_tickets(mine=name)
-            pos = live.index(name)
-            load = load1()
-            if pos == 0:
-                if run_fd is None:
-                    fd = os.open(RUN_LOCK, os.O_RDWR | os.O_CREAT, 0o644)
-                    try:
-                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        run_fd = fd
-                    except OSError:
-                        os.close(fd)
-                if run_fd is not None and load < MAX_LOAD:
-                    break
-                if run_fd is None:
-                    status = "ticket %d: next in line, waiting for the running UAT (%s) to finish; load %.2f" % (
-                        seq, " ".join(read_info(RUN_LOCK + ".info").split()[:2]) or "starting", load)
-                else:
-                    status = "ticket %d: next in line, waiting for load %.2f to drop below %g" % (seq, load, MAX_LOAD)
-            else:
-                status = "ticket %d: position %d in queue (%d ahead); load %.2f" % (seq, pos + 1, pos, load)
-            now = time.time()
-            key = status.split(";")[0]
-            if key != last_status or now - last_print >= 30:
-                say(status)
-                last_status, last_print = key, now
-            time.sleep(POLL)
 
-        info = "ticket=%d pid=%d since=%s cmd=%s" % (
-            seq, os.getpid(), time.strftime("%Y-%m-%d %H:%M:%S"), " ".join(cmd))
-        with open(RUN_LOCK + ".info", "w") as f:
-            f.write(info + "\n")
-        drop_ticket(name, tfd)
-        tfd = None
-        say("ticket %d: your turn (load %.2f); running: %s" % (seq, load1(), " ".join(cmd)))
+def cmd_run(label, cmd):
+    if not cmd:
+        say("usage: uat-lock run [--label <text>] -- <command...>")
+        return 2
+    if inherited_turn():
         try:
-            # The child inherits the run lock, so killing only this wrapper
-            # cannot admit the next UAT while the test command still runs.
-            child["p"] = subprocess.Popen(cmd, pass_fds=(run_fd,))
+            os.execvp(cmd[0], cmd)
         except OSError as e:
             say("cannot run %s: %s" % (cmd[0], e))
             return 127
-        with open(RUN_LOCK + ".info", "w") as f:
-            f.write("%s child=%d\n" % (info, child["p"].pid))
+    child = {}
+    install_signals(child)
+    what = ("label=%s " % label if label else "") + "cmd=" + " ".join(cmd)
+    turn = Turn("run", label, what)
+    try:
+        turn.acquire()
+        say("ticket %d: your turn (load %.2f); running: %s" % (turn.seq, load1(), " ".join(cmd)))
+        env = dict(os.environ, UAT_LOCK_HELD="1", UAT_LOCK_HOLDER_PID=str(os.getpid()))
+        try:
+            # The child inherits the run lock, so killing only this wrapper
+            # cannot admit the next holder while the command still runs.
+            child["p"] = subprocess.Popen(cmd, pass_fds=(turn.run_fd,), env=env)
+        except OSError as e:
+            say("cannot run %s: %s" % (cmd[0], e))
+            return 127
+        turn.write_info(child["p"].pid)
         while True:
             try:
                 rc = child["p"].wait()
                 break
             except InterruptedError:
                 continue
-        say("ticket %d: done, exit code %d; lock released" % (seq, rc if rc >= 0 else 128 - rc))
-        return rc if rc >= 0 else 128 - rc
+        rc = rc if rc >= 0 else 128 - rc
+        say("ticket %d: done, exit code %d; lock released" % (turn.seq, rc))
+        return rc
     finally:
-        if tfd is not None:
-            try:
-                drop_ticket(name, tfd)
-            except OSError:
-                pass
-        if run_fd is not None:
-            try:
-                os.unlink(RUN_LOCK + ".info")
-            except OSError:
-                pass
-            os.close(run_fd)
+        turn.release()
+
+
+def wait_for_release():
+    print("READY", flush=True)
+    while True:
+        try:
+            if not os.read(0, 65536):
+                return
+        except OSError:
+            return
+
+
+def cmd_hold(label):
+    if inherited_turn():
+        wait_for_release()
+        return 0
+    install_signals({})
+    what = "label=%s" % (label or "hold")
+    turn = Turn("hold", label, what)
+    try:
+        turn.acquire()
+        say("ticket %d: your turn (load %.2f); holding until stdin closes or SIGTERM; "
+            "export UAT_LOCK_HELD=1 UAT_LOCK_HOLDER_PID=%d to nested uat-lock calls"
+            % (turn.seq, load1(), os.getpid()))
+        wait_for_release()
+        say("ticket %d: released" % turn.seq)
+        return 0
+    finally:
+        turn.release()
 
 
 def cmd_status():
     setup()
-    load = load1()
-    print("load (1 min): %.2f, limit %g" % (load, MAX_LOAD))
-    if os.path.exists(RUN_LOCK) and held_by_someone(RUN_LOCK):
-        print("running: %s" % (read_info(RUN_LOCK + ".info") or "a UAT (starting or waiting for load)"))
+    table = process_table()
+    print("load (1 min): %.2f, limit %g" % (load1(), MAX_LOAD))
+
+    workers = sorted((p for p in table.values() if is_runner_worker(p)), key=lambda p: p.pid)
+    if not workers:
+        print("ci runner: idle")
+    for p in workers:
+        print("ci runner: active Runner.Worker pid %d, elapsed %s" % (p.pid, p.etime))
+
+    if held_by_someone(RUN_LOCK):
+        print("running: %s" % (read_info(INFO) or "a holder (starting)"))
     else:
         print("running: none")
+
+    roots = holder_pids()
+    procs = electron_roots(table)
+    if not procs:
+        print("electron: none")
+    for p in procs:
+        where = "in-queue" if roots & set(ancestors(p.pid, table)) else "OUT-OF-QUEUE"
+        parent = table.get(p.ppid)
+        launcher = launcher_of(p, table)
+        print("electron: pid %d, elapsed %s, %s, worktree %s, parent %s, launcher %s" % (
+            p.pid, p.etime, where, worktree_of(p).replace(os.path.expanduser("~"), "~"),
+            "%d %s" % (parent.pid, short(parent.cmd, 60)) if parent else str(p.ppid),
+            "%d %s" % (launcher.pid, short(launcher.cmd, 80)) if launcher else "none (orphaned)"))
+
     with Guard():
         live = live_tickets()
         rows = [(n, read_info(os.path.join(TICKETS, n))) for n in live]
@@ -227,14 +524,29 @@ def cmd_status():
     return 0
 
 
+def parse_label(args):
+    label = None
+    while args and args[0] == "--label":
+        if len(args) < 2:
+            raise SystemExit("uat-lock: --label needs a value")
+        label, args = args[1], args[2:]
+    return label, args
+
+
 def main(argv):
-    if len(argv) >= 1 and argv[0] == "status":
+    if argv[:1] == ["status"]:
         return cmd_status()
-    if len(argv) >= 1 and argv[0] == "run":
-        rest = argv[1:]
+    if argv[:1] == ["run"]:
+        label, rest = parse_label(argv[1:])
         if rest and rest[0] == "--":
             rest = rest[1:]
-        return cmd_run(rest)
+        return cmd_run(label, rest)
+    if argv[:1] == ["hold"]:
+        label, rest = parse_label(argv[1:])
+        if rest:
+            say("usage: uat-lock hold [--label <text>]")
+            return 2
+        return cmd_hold(label)
     sys.stdout.write(__doc__)
     return 0 if argv[:1] in (["-h"], ["--help"]) else 2
 
