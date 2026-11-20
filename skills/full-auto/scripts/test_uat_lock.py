@@ -308,5 +308,137 @@ class UatLockTest(unittest.TestCase):
             self.assertIn(line, out)
 
 
+    # review regressions
+    def test_info_is_never_partial_during_post_spawn_update(self):
+        gate = os.path.join(self.tmp, "gate")
+        env = dict(self.real_env(), UAT_LOCK_TEST_INFO_GATE=gate)
+        info = os.path.join(self.dir, "run.lock.info")
+        p = self.start("run", "--", "sh", "-c", "sleep 1; touch %s; sleep 1" % gate,
+                       env=env, stdin=subprocess.DEVNULL)
+        end, seen = time.time() + 60, 0
+        while time.time() < end and p.poll() is None:
+            try:
+                with open(info) as f:
+                    text = f.read()
+            except OSError:
+                time.sleep(0.01)
+                continue
+            seen += 1
+            self.assertRegex(text, r"^ticket=\d+ pid=%d .*\n$" % p.pid)
+        self.assertGreater(seen, 0)
+        self.assertEqual(self.finish(p)[0], 0)
+
+    def test_nested_call_during_post_spawn_update_passes_through(self):
+        # The holder publishes its post-spawn update only after the nested call
+        # has run, so the nested call always reads during that update.
+        gate = os.path.join(self.tmp, "gate")
+        env = dict(self.real_env(), UAT_LOCK_TEST_INFO_GATE=gate)
+        nested = "%s %s run -- echo nested-now && touch %s" % (sys.executable, SCRIPT, gate)
+        r = self.run_cmd("run", "--", "sh", "-c", nested, env=env, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout, "nested-now\n")
+        self.assertIn("passing through", r.stderr)
+
+    def test_linux_electron_is_gated_and_listed(self):
+        self.set_ps([(810, 1, "03:00", "/w/app/node_modules/electron/dist/electron ."),
+                     (811, 810, "02:59", "/w/app/node_modules/electron/dist/electron --type=zygote")])
+        self.assertIn("electron: pid 810, elapsed 03:00, OUT-OF-QUEUE, worktree /w/app,", self.status())
+        self.assertNotIn("pid 811", self.status())
+        p = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "out-of-queue Electron pid 810 (worktree /w/app, running 03:00)")
+        self.set_ps([])
+        self.assertEqual(self.finish(p)[0], 0)
+
+    def test_paths_with_spaces(self):
+        self.set_ps([
+            (820, 1, "01:00", "/Users/x/My Project/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron ."),
+            (821, 1, "01:00", "/Users/x/Linux Box/node_modules/electron/dist/electron --no-sandbox ."),
+            (822, 1, "01:00", "node /Users/x/Other Repo/out/main/index.js"),
+            (830, 1, "04:00", "/Users/x/CI Runner/bin/Runner.Worker spawnclient 1 2"),
+        ])
+        out = self.status()
+        self.assertIn("ci runner: active Runner.Worker pid 830, elapsed 04:00", out)
+        self.assertIn("electron: pid 820, elapsed 01:00, OUT-OF-QUEUE, worktree /Users/x/My Project,", out)
+        self.assertIn("electron: pid 821, elapsed 01:00, OUT-OF-QUEUE, worktree /Users/x/Linux Box,", out)
+        self.assertIn("electron: pid 822, elapsed 01:00, OUT-OF-QUEUE, worktree /Users/x/Other Repo,", out)
+        p = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "Runner.Worker pid 830")
+        self.wait_err(p, "out-of-queue Electron pid 820 (worktree /Users/x/My Project,")
+        self.set_ps([])
+        self.assertEqual(self.finish(p)[0], 0)
+
+    def assert_cancelled(self, p):
+        rc, out, err = self.finish(p)
+        self.assertEqual(rc, 1, err)
+        self.assertNotIn("READY", out)
+        self.assertIn("stdin closed before the turn started", err)
+
+    def test_hold_cancels_on_eof_behind_another_holder(self):
+        a = self.start("hold")
+        self.wait_ready(a)
+        b = self.start("hold")
+        self.wait_err(b, "waiting for the running holder")
+        self.release(b)
+        self.assert_cancelled(b)
+        self.assertIn("queue: empty", self.status())
+        self.release(a)
+        self.finish(a)
+        self.assertTrue(self.run_lock_free())
+
+    def test_hold_cancels_on_eof_behind_closed_gate(self):
+        self.set_load(9.5)
+        p = self.start("hold")
+        self.wait_err(p, "load 9.50 to drop below 8")
+        self.assertFalse(self.run_lock_free())
+        self.release(p)
+        self.assert_cancelled(p)
+        self.assertTrue(self.run_lock_free())
+        out = self.status()
+        self.assertIn("running: none", out)
+        self.assertIn("queue: empty", out)
+
+    def test_unreadable_process_list_keeps_gates_closed(self):
+        os.unlink(self.ps_file)
+        p = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "process inspection to work (cannot read UAT_LOCK_PS_FILE")
+        self.set_ps([])
+        self.assertEqual(self.finish(p)[0], 0)
+
+    def test_status_reports_unavailable_inspection(self):
+        os.unlink(self.ps_file)
+        r = self.run_cmd("status")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("ci runner: unknown (process inspection unavailable:", r.stdout)
+        self.assertIn("electron: unknown (process inspection unavailable:", r.stdout)
+
+    def test_failing_ps_command(self):
+        bin_dir = os.path.join(self.tmp, "bin")
+        os.mkdir(bin_dir)
+        with open(os.path.join(bin_dir, "ps"), "w") as f:
+            f.write("#!/bin/sh\nexit 1\n")
+        os.chmod(os.path.join(bin_dir, "ps"), 0o755)
+        env = dict(self.env, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
+        env.pop("UAT_LOCK_PS_FILE")
+        r = self.run_cmd("status", env=env)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("ci runner: unknown (process inspection unavailable: ps failed", r.stdout)
+        p = self.start("run", "--", "true", env=env, stdin=subprocess.DEVNULL)
+        self.wait_err(p, "process inspection to work (ps failed")
+        p.kill()
+        ok = dict(env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1")
+        self.assertEqual(self.run_cmd("run", "--", "true", env=ok).returncode, 0)
+
+    def test_nested_call_without_inspection_exits(self):
+        h = self.start("hold", env=self.real_env())
+        self.wait_ready(h)
+        env = dict(self.env, UAT_LOCK_HELD="1", UAT_LOCK_HOLDER_PID=str(h.pid),
+                   UAT_LOCK_PS_FILE=os.path.join(self.tmp, "missing"))
+        r = self.run_cmd("run", "--", "echo", "never", env=env)
+        self.assertEqual(r.returncode, 1)
+        self.assertEqual(r.stdout, "")
+        self.assertIn("cannot be verified", r.stderr)
+        self.release(h)
+        self.finish(h)
+
 if __name__ == "__main__":
     unittest.main()
