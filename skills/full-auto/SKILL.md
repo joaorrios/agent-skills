@@ -16,7 +16,7 @@ Both endings share the steps; "Endings" holds what differs, including what each 
 
 Either request grants permission to:
 
-- Commit and push the PR's own branch, and force-push it with `--force-with-lease` after a rebase.
+- Commit and push the PR's own branch, following the repository's branch-sync and history-rewrite rules. Without such rules, force-push it with `--force-with-lease` after a rebase.
 - Use the test methods that proof needs, without asking first.
 - Make the technical decisions, and the product decisions described under "Forks".
 
@@ -35,7 +35,7 @@ The permission covers only the tests this task needs. It lifts no blocker, and a
 1. **Finish the change.** Reach the goal of the request with the smallest change that works. Fix the case that happened, not every case that could. On the default branch, create a branch first.
 2. **Prove it.** Get proof for every change in the diff. See "Proof".
 3. **Review it.** Review the diff with the review skills and tools available in this environment, preferring a reviewer with a fresh, independent context. With none available, read the full diff yourself as a reviewer would. Fix each real finding and prove the fix; record each dismissal with a written reason.
-4. **Open the PR.** Bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase), push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the product validation gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
+4. **Open the PR.** Follow the repository's branch-sync rules; without any, bring the branch up to date with the latest default branch the way the repo does it (merge it in, or rebase). Push, and open the PR with the repo's PR template when one exists. Add one short line to the description saying how you proved the change, and list the fork decisions you made. When the product validation gate applies, the description also lists what changes for the user, in the user's words: the promise UAT tests.
 5. **Tend the PR** until every merge-gate condition except UAT holds, or until only blockers keep them shut (see "Blockers"), such as a required human approval. Use the PR-monitoring skills available in this environment. With none, watch CI, review bots, and human reviews yourself. Fix real findings and CI failures, prove each fix before pushing it, and reply to or resolve each review thread you address, through a comment-attribution skill when one is available.
 6. **Run UAT** when the product validation gate applies, once step 5 is done, on the head you will close out with: in the PR's first batch of work, or in a later run when the user asked for a rerun. See "Product validation gate".
 7. **Close out** with the ending the user named, or full stop when the product validation gate switched it. See "Endings".
@@ -63,7 +63,7 @@ Full confidence means all of these hold on the latest commit:
 - Required checks are green.
 - Review bots have finished, and each finding is fixed or dismissed with a written reason.
 - No human review still requests changes.
-- The branch is up to date with the default branch, and GitHub reports it as mergeable.
+- The repository's branch-sync requirements are satisfied (without any, the branch is up to date with the default branch), and GitHub reports the PR as mergeable.
 
 An automated review asking for human review can be dismissed when your proof gives you high confidence; say so in the report.
 
