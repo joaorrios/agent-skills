@@ -61,18 +61,13 @@ Make each finding judgeable:
 - **A native baseline** when the failure could be platform behavior: the same action in a minimal native app, at several delays, with numbers. Use real input events for it; scripted menu clicks skip what the OS does between click and action.
 - **Corroboration:** a finding both testers reached independently is the strongest evidence; one only the script tester hit may be a script error.
 
-Classification orders the findings; it does not settle them. Every finding still goes to the user, and none is fixed before the user confirms it.
+Classification orders the findings; it does not settle them. What happens to each finding is set by "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md).
 
 This step is complete when every finding has a class, counts, and the evidence behind it.
 
 ## 5. Report to the user
 
-Post the UAT result in the PR yourself and put it in your final report, a run with no findings included:
-
-- **PR body:** the UAT's video or screenshot, uploaded as "Proof" in [`../SKILL.md`](../SKILL.md) describes for media in the PR.
-- **PR comment:** the full report, the trace, and the other media, uploaded the same way with `gh pr comment <n> --body-file <report> --attach ...`.
-
-The report covers:
+Deliver the UAT result as "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md) says. The report covers:
 
 - **What was tested:** the commit, the environment, each tester's input tool, and that tool's limits, so the user knows what a PASS does not cover.
 - **Per-item tables:** verdict, the physical action, what was observed, and the evidence files.
@@ -91,4 +86,4 @@ This step is complete when nothing started for UAT is still running.
 
 ## Retesting reworked cases in a later run
 
-The user answers after the run ends, so fixing confirmed findings is new work for a later run, which goes through the full-auto steps again. That run skips UAT unless the user asked for a rerun in the request; otherwise it asks at the end whether the user wants to look at the change directly or have UAT run again, and a small change never gets a rerun. When the user asks for one, retest the failed and fixed cases with the same kind of tester, on the head the batch closes out with, repeating timing-sensitive cases at least five times, instead of a full two-tester run, unless the fix changes what the user sees or does beyond those cases. Unit tests, E2E, and probes passing do not make a fix done; the user's own look or the retest does. Keep any automated test that comes out of a finding at the lowest layer that proves it.
+Whether a later run retests is set by "Later runs" under "Product validation gate" in [`../SKILL.md`](../SKILL.md). A retest covers the failed and fixed cases on the head the batch closes out with, run by the same kind of tester, with each timing-sensitive case repeated at least five times. It replaces a full two-tester run unless the fix changes what the user sees or does beyond those cases. Keep any automated test that comes out of a finding at the lowest layer that proves it.

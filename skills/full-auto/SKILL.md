@@ -52,8 +52,6 @@ Proof is evidence you observed yourself in this session: command output, a repro
 - Add one focused test that fails without the fix, when the behavior has none and the repo has a test setup.
 - For UI and runtime behavior, run the app and look at the change; green mocked tests do not prove the user experience works.
 
-Screenshots and video of a user-facing change reach the reviewer only as files uploaded to the PR, so they render in its body; a local file path reaches no one. Put them in the PR body with `gh pr edit <n> --body-file <file> --attach <media>`, in the section the repo's PR template names for that media when it has one: one video, or one screenshot when there is no video. The video sits alone in its paragraph, as `![](PATH/TO/VIDEO)` with the same file passed to `--attach`, so it renders as a player. Further media goes in a comment with `gh pr comment <n> --body-file <file> --attach <media>`. `--attach` needs gh 2.103 or later and push access to the repository; see [Attaching files with GitHub CLI](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli).
-
 Proof and review cover the final diff: re-check behavior changes and meaningful conflict fixes made after them. A change you cannot prove is a blocker for the merge gate.
 
 ## Merge gate
@@ -73,12 +71,12 @@ An automated review asking for human review can be dismissed when your proof giv
 
 A change that alters what the user sees or does (a feature, a screen, a flow, its usability) needs **UAT** before the ending: agents use the running app as a user would, without the user. A change the user cannot see, such as a refactor, an internal API, docs, tests, or CI, skips it; when unsure, run it.
 
-- **How:** follow [`references/uat.md`](references/uat.md). Two testers drive the app like a user, with Playwright or Electron QA, and with computer use where the change touches the OS: one knows only what the PR promises, the other follows a script you write.
+- **How:** follow [`references/uat.md`](references/uat.md).
 - **Guard:** as soon as you know the gate applies, under either ending, apply full stop's guard against merging on its own (see "Full stop") and keep it until step 7. Required checks and a monitoring skill's "ready" never include UAT, so neither one is a signal to merge.
 - **Promise:** the promise tester works from the PR description's list of what changes for the user. When the PR already exists without that list, add it to the description before UAT.
 - **When:** once, at the end of the PR's first batch of work: after step 5, when the pushes so far have brought every merge-gate condition except UAT to hold, or left only blockers. A push by itself never triggers UAT, so a series of corrections gets one run, not one per push.
 - **Later runs:** a later full-auto run on the same PR, such as one that reworks the change after the user did not approve it, skips step 6 unless the user asked for a rerun in the request. Never rerun UAT for a small change, such as a copy, style, or one-line fix; when a small change fixes a finding, ask the user to look at it. When the later run changed more than that, ask at the end (see "Asking at the end"): "Do you want to look at it directly, or should we rerun UAT?" A rerun covers the reworked cases (see the reference).
-- **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
+- **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. In the PR, its media follow the repo's PR template. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
 - **Ending:** under full send, switch to full stop whenever a finding, a BLOCKED or INCONCLUSIVE item, or a check left to the user awaits the user's answer, and whenever a change made after the run awaits the user's look; you may also switch when the user should see the change before it merges. Report the switch and its reason. Fixing confirmed findings is new work for a later run (see "Later runs").
 
 ## Endings
