@@ -66,6 +66,7 @@ skills/
       uat.md
     scripts/
       uat-lock
+      test_uat_lock.py
   implementation-review/
     SKILL.md
     reviewer-models.md

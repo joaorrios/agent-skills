@@ -1,0 +1,312 @@
+"""Tests for uat-lock. Run: python3 -m unittest test_uat_lock (from this folder).
+
+Every test uses its own temporary UAT_LOCK_DIR, a fake load file, and a fake
+process list unless it needs the real process tree, so it never touches the
+machine's queue.
+"""
+import fcntl
+import os
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+
+SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uat-lock")
+NM_ELECTRON = "/w/app/node_modules/.pnpm/electron@41/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+
+
+class UatLockTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="uat-lock-test-")
+        self.dir = os.path.join(self.tmp, "state")
+        self.load_file = os.path.join(self.tmp, "load")
+        self.ps_file = os.path.join(self.tmp, "ps")
+        self.set_load(0.5)
+        self.set_ps([])
+        self.env = {k: v for k, v in os.environ.items()
+                    if not k.startswith("UAT_LOCK_") and k != "GITHUB_ACTIONS"}
+        self.env.update(UAT_LOCK_DIR=self.dir, UAT_LOCK_POLL="0.05",
+                        UAT_LOCK_LOAD_FILE=self.load_file, UAT_LOCK_PS_FILE=self.ps_file)
+        self.procs = []
+        self.errs = {}
+
+    def tearDown(self):
+        for p in self.procs:
+            if p.poll() is None:
+                p.kill()
+            p.wait()
+            for f in (p.stdin, p.stdout, p.stderr):
+                if f:
+                    f.close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    # helpers
+    def set_load(self, value):
+        with open(self.load_file, "w") as f:
+            f.write(str(value))
+
+    def set_ps(self, rows):
+        with open(self.ps_file, "w") as f:
+            for pid, ppid, etime, cmd in rows:
+                f.write("%d %d %s %s\n" % (pid, ppid, etime, cmd))
+
+    def start(self, *args, env=None, stdin=subprocess.PIPE):
+        p = subprocess.Popen([sys.executable, SCRIPT] + list(args), env=env or self.env,
+                             stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.procs.append(p)
+        return p
+
+    def run_cmd(self, *args, env=None, timeout=30):
+        return subprocess.run([sys.executable, SCRIPT] + list(args), env=env or self.env,
+                              stdin=subprocess.DEVNULL, capture_output=True,
+                              universal_newlines=True, timeout=timeout)
+
+    def read_err(self, p, timeout):
+        ready, _, _ = select.select([p.stderr], [], [], timeout)
+        if not ready:
+            return False
+        chunk = os.read(p.stderr.fileno(), 65536).decode()
+        self.errs[p.pid] = self.errs.get(p.pid, "") + chunk
+        return bool(chunk)
+
+    def wait_err(self, p, text, timeout=20):
+        """Wait until p printed text on stderr, then check it is still waiting."""
+        end = time.time() + timeout
+        while text not in self.errs.get(p.pid, ""):
+            if time.time() > end or not self.read_err(p, end - time.time()):
+                self.fail("never printed %r; got %r" % (text, self.errs.get(p.pid, "")))
+        self.assertIsNone(p.poll(), "process should still be waiting")
+
+    def wait_ready(self, p, timeout=20):
+        ready, _, _ = select.select([p.stdout], [], [], timeout)
+        self.assertTrue(ready, "no READY within %ss" % timeout)
+        self.assertEqual(p.stdout.readline().decode().strip(), "READY")
+
+    def release(self, p):
+        p.stdin.close()
+        p.stdin = None
+
+    def finish(self, p, timeout=20):
+        out, err = p.communicate(timeout=timeout)
+        return p.returncode, out.decode(), self.errs.get(p.pid, "") + err.decode()
+
+    def run_lock_free(self):
+        path = os.path.join(self.dir, "run.lock")
+        fd = os.open(path, os.O_RDWR | os.O_CREAT)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except OSError:
+            return False
+        finally:
+            os.close(fd)
+
+    def status(self):
+        r = self.run_cmd("status")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout
+
+    # run
+    def test_run_returns_exit_code_and_releases(self):
+        r = self.run_cmd("run", "--", "sh", "-c", "echo hi; exit 3")
+        self.assertEqual(r.returncode, 3)
+        self.assertEqual(r.stdout, "hi\n")
+        self.assertTrue(self.run_lock_free())
+        out = self.status()
+        self.assertIn("running: none", out)
+        self.assertIn("queue: empty", out)
+
+    def test_run_exports_holder_to_command(self):
+        r = self.run_cmd("run", "--", "sh", "-c", 'echo "$UAT_LOCK_HELD $UAT_LOCK_HOLDER_PID $PPID"')
+        held, holder, ppid = r.stdout.split()
+        self.assertEqual(held, "1")
+        self.assertEqual(holder, ppid)
+
+    def test_runs_are_serialized_in_order(self):
+        a = self.start("hold", "--label", "A")
+        self.wait_ready(a)
+        b = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(b, "waiting for the running holder")
+        out = self.status()
+        self.assertIn("label=A", out.split("running: ")[1].splitlines()[0])
+        self.assertIn("queue 1: ticket 1 pid=%d" % b.pid, out)
+        self.release(a)
+        self.assertEqual(self.finish(b)[0], 0)
+
+    # hold
+    def test_hold_releases_on_stdin_eof(self):
+        p = self.start("hold", "--label", "electron qa")
+        self.wait_ready(p)
+        self.assertFalse(self.run_lock_free())
+        self.assertIn("label=electron qa", self.status())
+        self.release(p)
+        self.assertEqual(self.finish(p)[0], 0)
+        self.assertTrue(self.run_lock_free())
+
+    def test_hold_releases_on_sigkill(self):
+        p = self.start("hold")
+        self.wait_ready(p)
+        p.kill()
+        p.wait()
+        self.assertTrue(self.run_lock_free())
+        self.assertIn("running: none", self.status())
+        r = self.run_cmd("run", "--", "true")
+        self.assertEqual(r.returncode, 0)
+
+    def test_hold_releases_on_sigterm(self):
+        p = self.start("hold")
+        self.wait_ready(p)
+        p.send_signal(signal.SIGTERM)
+        p.wait(timeout=5)
+        self.assertTrue(self.run_lock_free())
+
+    # re-entrancy (needs the real process tree)
+    def real_env(self):
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1")
+        env.pop("UAT_LOCK_PS_FILE")
+        return env
+
+    def test_nested_run_and_hold_pass_through(self):
+        nested = "%s %s run -- echo nested-run && %s %s hold </dev/null" % (
+            sys.executable, SCRIPT, sys.executable, SCRIPT)
+        r = self.run_cmd("run", "--", "sh", "-c", nested, env=self.real_env())
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.split(), ["nested-run", "READY"])
+        self.assertIn("passing through", r.stderr)
+
+    def test_nested_under_hold_passes_through_with_exported_pid(self):
+        env = self.real_env()
+        h = self.start("hold", env=env)
+        self.wait_ready(h)
+        nested = dict(env, UAT_LOCK_HELD="1", UAT_LOCK_HOLDER_PID=str(h.pid))
+        # Started by this test process, which is the hold's owner.
+        r = self.run_cmd("run", "--", "echo", "inside", env=nested)
+        self.assertEqual(r.stdout, "inside\n", r.stderr)
+        self.release(h)
+        self.finish(h)
+
+    def test_spoofed_holder_queues_instead(self):
+        env = self.real_env()
+        h = self.start("hold", env=env)
+        self.wait_ready(h)
+        spoof = dict(env, UAT_LOCK_HELD="1", UAT_LOCK_HOLDER_PID=str(os.getpid()))
+        b = self.start("run", "--", "true", env=spoof, stdin=subprocess.DEVNULL)
+        self.wait_err(b, "waiting for the running holder")
+        self.release(h)
+        rc, _, err = self.finish(b)
+        self.assertEqual(rc, 0)
+        self.assertIn("does not hold run.lock", err)
+
+    # stale tickets
+    def test_stale_tickets_are_removed(self):
+        a = self.start("hold")
+        self.wait_ready(a)
+        dead = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(dead, "ticket 1:")
+        dead.kill()
+        dead.wait()
+        orphan = os.path.join(self.dir, "tickets", "000000000099.lock")
+        open(orphan, "w").close()
+        tickets = os.path.join(self.dir, "tickets")
+        self.assertEqual(len(os.listdir(tickets)), 2)
+        self.assertIn("queue: empty", self.status())
+        self.assertEqual(os.listdir(tickets), [])
+        self.release(a)
+
+    # gates
+    def test_waits_for_load(self):
+        self.set_load(9.5)
+        p = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "load 9.50 to drop below 8")
+        self.set_load(1)
+        rc, _, err = self.finish(p)
+        self.assertEqual(rc, 0)
+        self.assertIn("load 9.50 to drop below 8", err)
+
+    def test_waits_for_active_runner_worker(self):
+        self.set_ps([(700, 1, "10-00:00:00", "/Users/x/bin/Runner.Listener run"),
+                     (701, 700, "14:01", "/Users/x/bin.2.3/Runner.Worker spawnclient 1 2")])
+        p = self.start("hold")
+        self.wait_err(p, "CI job to finish (Runner.Worker pid 701, running 14:01)")
+        self.set_ps([(700, 1, "10-00:00:00", "/Users/x/bin/Runner.Listener run")])
+        self.wait_ready(p)
+        self.release(p)
+        _, _, err = self.finish(p)
+        self.assertIn("CI job to finish (Runner.Worker pid 701, running 14:01)", err)
+
+    def test_runner_gate_skipped_by_env(self):
+        self.set_ps([(701, 1, "01:00", "/x/Runner.Worker spawnclient 1 2")])
+        for extra in ({"UAT_LOCK_IGNORE_RUNNER": "1"}, {"GITHUB_ACTIONS": "true"}):
+            r = self.run_cmd("run", "--", "true", env=dict(self.env, **extra))
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_waits_for_out_of_queue_electron(self):
+        self.set_ps([(800, 1, "05:00", "node /w/app/node_modules/.bin/electron-vite dev"),
+                     (801, 800, "04:59", NM_ELECTRON + " ."),
+                     (802, 801, "04:58", NM_ELECTRON.replace("MacOS/Electron", "Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper") + " --type=gpu-process")])
+        p = self.start("run", "--", "true", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "out-of-queue Electron pid 801 (worktree /w/app, running 04:59) to exit")
+        self.set_ps([])
+        rc, _, err = self.finish(p)
+        self.assertEqual(rc, 0)
+        self.assertIn("out-of-queue Electron pid 801 (worktree /w/app, running 04:59) to exit", err)
+
+    def test_ignores_desktop_apps_and_honours_ignore_env(self):
+        self.set_ps([(900, 1, "1-00:00:00", "/Applications/Slack.app/Contents/MacOS/Slack"),
+                     (901, 1, "1-00:00:00", "/Applications/Claude.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler"),
+                     (902, 1, "1-00:00:00", "/Applications/Foo.app/Contents/MacOS/Electron out/main/index.js")])
+        self.assertEqual(self.run_cmd("run", "--", "true").returncode, 0)
+        self.set_ps([(903, 1, "00:10", NM_ELECTRON + " -r /w/node_modules/playwright-core/lib/server/electron/loader.js")])
+        r = self.run_cmd("run", "--", "true", env=dict(self.env, UAT_LOCK_IGNORE_ELECTRON="1"))
+        self.assertEqual(r.returncode, 0)
+
+    def test_detects_out_main_and_playwright_loader(self):
+        self.set_ps([(950, 1, "00:10", "/w/b/node_modules/electron/dist/electron /w/b/out/main/index.js"),
+                     (951, 1, "00:10", "node -r /w/c/node_modules/playwright-core/lib/server/electron/loader.js /w/c")])
+        out = self.status()
+        self.assertIn("electron: pid 950", out)
+        self.assertIn("electron: pid 951", out)
+
+    # status
+    def test_status_reports_runner_holder_electron_and_queue(self):
+        run_lock = os.path.join(self.dir, "tickets")
+        os.makedirs(run_lock)
+        fd = os.open(os.path.join(self.dir, "run.lock"), os.O_RDWR | os.O_CREAT)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            with open(os.path.join(self.dir, "run.lock.info"), "w") as f:
+                f.write("ticket=4 pid=5000 owner=4990 child=0 mode=hold since=2026-11-20 10:00:00 label=t18\n")
+            self.set_ps([
+                (701, 1, "02:00", "/x/Runner.Worker spawnclient 1 2"),
+                (4990, 4000, "09:00", "node /w/t18/harness.js"),
+                (4000, 1, "1:00:00", "claude --session t18"),
+                (5000, 4990, "08:00", "/usr/bin/python3 uat-lock hold --label t18"),
+                (5001, 4990, "07:00", NM_ELECTRON.replace("/w/app", "/w/t18") + " ."),
+                (6000, 1, "2:00:00", "codex exec"),
+                (6001, 6000, "06:00", "/bin/zsh -c pnpm test:e2e"),
+                (6002, 6001, "05:00", "/w/other/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron /w/other/out/main/index.js"),
+            ])
+            out = self.status()
+        finally:
+            os.close(fd)
+        self.assertIn("load (1 min): 0.50, limit 8", out)
+        self.assertIn("ci runner: active Runner.Worker pid 701, elapsed 02:00", out)
+        self.assertIn("running: ticket=4 pid=5000", out)
+        self.assertRegex(out, r"electron: pid 5001, elapsed 07:00, in-queue, worktree /w/t18, "
+                              r"parent 4990 node /w/t18/harness.js, launcher 4000 claude --session t18")
+        self.assertRegex(out, r"electron: pid 6002, elapsed 05:00, OUT-OF-QUEUE, worktree /w/other, "
+                              r"parent 6001 /bin/zsh -c pnpm test:e2e, launcher 6000 codex exec")
+        self.assertIn("queue: empty", out)
+
+    def test_status_idle(self):
+        out = self.status()
+        for line in ("ci runner: idle", "running: none", "electron: none", "queue: empty"):
+            self.assertIn(line, out)
+
+
+if __name__ == "__main__":
+    unittest.main()
