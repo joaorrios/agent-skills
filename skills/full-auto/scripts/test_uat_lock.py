@@ -50,8 +50,13 @@ class UatLockTest(unittest.TestCase):
             f.write(str(value))
 
     def set_ps(self, rows):
+        """Rows are (pid, ppid, etime, command) or (pid, ppid, etime, argv0, args)
+        when argv[0] has spaces, as ps reports it apart from the command line."""
         with open(self.ps_file, "w") as f:
-            for pid, ppid, etime, cmd in rows:
+            for row in rows:
+                pid, ppid, etime, cmd = row[:4]
+                if len(row) == 5:
+                    cmd = "%s\t%s" % (cmd, row[4])
                 f.write("%d %d %s %s\n" % (pid, ppid, etime, cmd))
 
     def start(self, *args, env=None, stdin=subprocess.PIPE):
@@ -351,10 +356,10 @@ class UatLockTest(unittest.TestCase):
 
     def test_paths_with_spaces(self):
         self.set_ps([
-            (820, 1, "01:00", "/Users/x/My Project/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron ."),
-            (821, 1, "01:00", "/Users/x/Linux Box/node_modules/electron/dist/electron --no-sandbox ."),
+            (820, 1, "01:00", "/Users/x/My Project/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron", "."),
+            (821, 1, "01:00", "/Users/x/Linux Box/node_modules/electron/dist/electron", "--no-sandbox ."),
             (822, 1, "01:00", "node /Users/x/Other Repo/out/main/index.js"),
-            (830, 1, "04:00", "/Users/x/CI Runner/bin/Runner.Worker spawnclient 1 2"),
+            (830, 1, "04:00", "/Users/x/CI Runner/bin/Runner.Worker", "spawnclient 1 2"),
         ])
         out = self.status()
         self.assertIn("ci runner: active Runner.Worker pid 830, elapsed 04:00", out)
@@ -442,9 +447,9 @@ class UatLockTest(unittest.TestCase):
 
     def test_paths_with_space_hyphen(self):
         self.set_ps([
-            (840, 1, "01:00", "/w/My - Project/node_modules/electron/dist/electron ."),
-            (841, 1, "01:00", "/w/Mac - Project/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --inspect ."),
-            (850, 1, "02:00", "/w/CI - Runner/bin/Runner.Worker spawnclient 1 2"),
+            (840, 1, "01:00", "/w/My - Project/node_modules/electron/dist/electron", "."),
+            (841, 1, "01:00", "/w/Mac - Project/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron", "--inspect ."),
+            (850, 1, "02:00", "/w/CI - Runner/bin/Runner.Worker", "spawnclient 1 2"),
         ])
         out = self.status()
         self.assertIn("ci runner: active Runner.Worker pid 850, elapsed 02:00", out)
@@ -484,6 +489,57 @@ class UatLockTest(unittest.TestCase):
             os.close(guard)
         self.assert_cancelled(b)
         self.assertTrue(self.run_lock_free())
+
+    def test_spaced_paths_whose_first_word_is_a_launcher_name(self):
+        self.set_ps([
+            (870, 1, "01:00", "/w/node Project/node_modules/electron/dist/electron", "."),
+            (871, 1, "02:00", "/w/ci/npm Runner/bin/Runner.Worker", "spawnclient 1 2"),
+        ])
+        out = self.status()
+        self.assertIn("ci runner: active Runner.Worker pid 871, elapsed 02:00", out)
+        self.assertIn("electron: pid 870, elapsed 01:00, OUT-OF-QUEUE, worktree /w/node Project,", out)
+        p = self.start("run", "--", "echo", "ADMITTED", stdin=subprocess.DEVNULL)
+        self.wait_err(p, "Runner.Worker pid 871")
+        self.wait_err(p, "out-of-queue Electron pid 870 (worktree /w/node Project,")
+        self.set_ps([])
+        rc, out, _ = self.finish(p)
+        self.assertEqual((rc, out), (0, "ADMITTED\n"))
+
+    def test_known_paths_in_option_values_are_not_executables(self):
+        self.set_ps([
+            (880, 1, "01:00", "/usr/bin/grep --exclude=/w/app/node_modules/electron/dist/electron needle file"),
+            (881, 1, "01:00", "/usr/bin/grep --exclude=/w/app/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron needle file"),
+            (882, 1, "01:00", "/usr/bin/grep --exclude=/w/ci/bin/Runner.Worker needle file"),
+        ])
+        out = self.status()
+        self.assertIn("ci runner: idle", out)
+        self.assertIn("electron: none", out)
+        r = self.run_cmd("run", "--", "echo", "ADMITTED")
+        self.assertEqual((r.returncode, r.stdout), (0, "ADMITTED\n"), r.stderr)
+
+    def test_real_processes_are_classified_by_argv0(self):
+        # Copies of sleep stand in for Electron and Runner.Worker under spaced
+        # paths; a shell carries the same paths only as arguments.
+        electron = os.path.join(self.tmp, "node Project", "node_modules", "electron", "dist", "electron")
+        runner = os.path.join(self.tmp, "ci", "npm Runner", "bin", "Runner.Worker")
+        for path in (electron, runner):
+            os.makedirs(os.path.dirname(path))
+            shutil.copy(shutil.which("sleep"), path)
+        procs = [subprocess.Popen([electron, "30"]), subprocess.Popen([runner, "30"]),
+                 subprocess.Popen(["/bin/sh", "-c", "sleep 30", "--exclude=" + electron, runner])]
+        self.procs.extend(procs)
+        env = dict(self.env)
+        env.pop("UAT_LOCK_PS_FILE")
+        deadline = time.time() + 20
+        while True:
+            out = self.run_cmd("status", env=env).stdout
+            if "pid %d," % procs[0].pid in out or time.time() > deadline:
+                break
+        self.assertIn("ci runner: active Runner.Worker pid %d," % procs[1].pid, out)
+        self.assertIn("electron: pid %d, " % procs[0].pid, out)
+        self.assertIn("worktree %s," % os.path.dirname(electron).split("/node_modules/")[0]
+                      .replace(os.path.expanduser("~"), "~"), out)
+        self.assertNotIn("pid %d," % procs[2].pid, out)
 
 if __name__ == "__main__":
     unittest.main()
