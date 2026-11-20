@@ -71,7 +71,7 @@ An automated review asking for human review can be dismissed when your proof giv
 
 A change that alters what the user sees or does (a feature, a screen, a flow, its usability) needs **UAT** before the ending: agents use the running app as a user would, without the user. A change the user cannot see, such as a refactor, an internal API, docs, tests, or CI, skips it; when unsure, run it.
 
-- **How:** follow [`references/uat.md`](references/uat.md). Two testers drive the app like a user, with Playwright or Electron QA, and with computer use where the change touches the OS: one knows only what the PR promises, the other follows a script you write.
+- **How:** follow [`references/uat.md`](references/uat.md).
 - **Guard:** as soon as you know the gate applies, under either ending, apply full stop's guard against merging on its own (see "Full stop") and keep it until step 7. Required checks and a monitoring skill's "ready" never include UAT, so neither one is a signal to merge.
 - **Promise:** the promise tester works from the PR description's list of what changes for the user. When the PR already exists without that list, add it to the description before UAT.
 - **When:** once, at the end of the PR's first batch of work: after step 5, when the pushes so far have brought every merge-gate condition except UAT to hold, or left only blockers. A push by itself never triggers UAT, so a series of corrections gets one run, not one per push.
