@@ -67,12 +67,7 @@ This step is complete when every finding has a class, counts, and the evidence b
 
 ## 5. Report to the user
 
-Post the UAT result in the PR yourself and put it in your final report, a run with no findings included:
-
-- **PR body:** the UAT's video or screenshot, uploaded as "Proof" in [`../SKILL.md`](../SKILL.md) describes for media in the PR.
-- **PR comment:** the full report, the trace, and the other media, uploaded the same way with `gh pr comment <n> --body-file <report> --attach ...`.
-
-The report covers:
+Post the UAT result in the PR yourself and put it in your final report, as "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md) describes. The report covers:
 
 - **What was tested:** the commit, the environment, each tester's input tool, and that tool's limits, so the user knows what a PASS does not cover.
 - **Per-item tables:** verdict, the physical action, what was observed, and the evidence files.
