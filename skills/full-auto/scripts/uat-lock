@@ -88,15 +88,13 @@ def load1():
 
 # ---------------------------------------------------------------- processes
 
-# One executable path character: anything but a space that starts another
-# absolute path, so executable paths keep their spaces (also " - ").
-_SEG = r"(?:[^ ]| (?!/))"
+# Executables are classified by argv[0], read apart from the flattened command
+# line (ps comm on macOS, /proc/<pid>/cmdline on Linux), so spaces in a path
+# and paths inside option values are never confused.
 KNOWN_EXES = [
-    ("electron", re.compile(r"^(/%s*?/node_modules/%s*?/Electron\.app/Contents/MacOS/Electron)(?= |$)"
-                            % (_SEG, _SEG))),
-    ("electron", re.compile(r"^(/%s*?/node_modules/(?:%s*?/)?electron/dist/electron)(?= |$)"
-                            % (_SEG, _SEG))),
-    ("runner", re.compile(r"^((?:/%s*?/)?Runner\.Worker)(?= |$)" % _SEG)),
+    ("electron", re.compile(r"(?:^|/)node_modules/.*/Electron\.app/Contents/MacOS/Electron$")),
+    ("electron", re.compile(r"(?:^|/)node_modules/(?:.*/)?electron/dist/electron$")),
+    ("runner", re.compile(r"(?:^|/)Runner\.Worker$")),
 ]
 
 
@@ -107,16 +105,14 @@ class InspectError(Exception):
 class Proc(object):
     __slots__ = ("pid", "ppid", "etime", "cmd", "kind", "exe")
 
-    def __init__(self, pid, ppid, etime, cmd):
+    def __init__(self, pid, ppid, etime, cmd, exe=None):
         self.pid, self.ppid, self.etime, self.cmd = pid, ppid, etime, cmd
-        self.kind, self.exe = None, cmd.split(" ", 1)[0]
-        first = self.exe
+        if not exe or not cmd.startswith(exe):
+            exe = cmd.split(" ", 1)[0]
+        self.exe, self.kind = exe, None
         for kind, rx in KNOWN_EXES:
-            m = rx.match(cmd)
-            # A match that spans spaces must not start with a launcher such as
-            # "sh -c ..." or "env ...": then the known path is an argument.
-            if m and (m.group(1) == first or os.path.basename(first) not in WRAPPERS):
-                self.kind, self.exe = kind, m.group(1)
+            if rx.search(exe):
+                self.kind = kind
                 break
 
     @property
@@ -128,8 +124,36 @@ class Proc(object):
         return self.cmd[len(self.exe):]
 
 
+def argv0_map(pids):
+    """{pid: argv[0]} read apart from the command line; missing pids fall back."""
+    out = {}
+    if sys.platform.startswith("linux"):
+        for pid in pids:
+            try:
+                with open("/proc/%d/cmdline" % pid, "rb") as f:
+                    argv0 = f.read().split(b"\0", 1)[0]
+            except OSError:
+                continue
+            out[pid] = argv0.decode("utf-8", "replace")
+        return out
+    try:
+        text = subprocess.check_output(["ps", "-axww", "-o", "pid=,comm="],
+                                       universal_newlines=True, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.CalledProcessError):
+        return out
+    for line in text.splitlines():
+        parts = line.strip().split(" ", 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            out[int(parts[0])] = parts[1].strip()
+    return out
+
+
 def process_table():
-    """{pid: Proc} from UAT_LOCK_PS_FILE when set, else from ps; InspectError on failure."""
+    """{pid: Proc} from UAT_LOCK_PS_FILE when set, else from ps; InspectError on failure.
+
+    UAT_LOCK_PS_FILE lines are "pid ppid etime command"; a line written as
+    "pid ppid etime argv0<TAB>args" gives argv[0] (spaces allowed) explicitly.
+    """
     path = os.environ.get("UAT_LOCK_PS_FILE")
     if path:
         try:
@@ -144,16 +168,24 @@ def process_table():
                 universal_newlines=True, stderr=subprocess.DEVNULL)
         except (OSError, subprocess.CalledProcessError) as e:
             raise InspectError("ps failed: %s" % e)
-    table = {}
+    rows = []
     for line in text.splitlines():
-        parts = line.split(None, 3)
+        parts = line.strip().split(None, 3)
         if len(parts) < 4:
             continue
         try:
             pid, ppid = int(parts[0]), int(parts[1])
         except ValueError:
             continue
-        table[pid] = Proc(pid, ppid, parts[2], parts[3])
+        rows.append((pid, ppid, parts[2], parts[3]))
+    argv0 = {} if path else argv0_map([r[0] for r in rows])
+    table = {}
+    for pid, ppid, etime, cmd in rows:
+        exe = argv0.get(pid)
+        if path and "\t" in cmd:
+            exe, rest = cmd.split("\t", 1)
+            cmd = exe + (" " + rest if rest else "")
+        table[pid] = Proc(pid, ppid, etime, cmd, exe)
     if not path and os.getpid() not in table:
         raise InspectError("ps returned no usable process list")
     return table
@@ -212,7 +244,7 @@ def path_before(text, marker):
 
 def worktree_of(p):
     if "/node_modules/" in p.exe:
-        return path_before(p.exe, "/node_modules/") or "?"
+        return p.exe.split("/node_modules/", 1)[0] or "?"
     for marker in ("/out/main/index.js", "/node_modules/"):
         found = path_before(p.args, marker)
         if found:
