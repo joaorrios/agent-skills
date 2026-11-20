@@ -88,9 +88,9 @@ def load1():
 
 # ---------------------------------------------------------------- processes
 
-# One path segment character: anything but a space that starts a new argument
-# (a space followed by "-" or "/"), so executable paths keep their spaces.
-_SEG = r"(?:[^ ]| (?![-/]))"
+# One executable path character: anything but a space that starts another
+# absolute path, so executable paths keep their spaces (also " - ").
+_SEG = r"(?:[^ ]| (?!/))"
 KNOWN_EXES = [
     ("electron", re.compile(r"^(/%s*?/node_modules/%s*?/Electron\.app/Contents/MacOS/Electron)(?= |$)"
                             % (_SEG, _SEG))),
@@ -110,9 +110,12 @@ class Proc(object):
     def __init__(self, pid, ppid, etime, cmd):
         self.pid, self.ppid, self.etime, self.cmd = pid, ppid, etime, cmd
         self.kind, self.exe = None, cmd.split(" ", 1)[0]
+        first = self.exe
         for kind, rx in KNOWN_EXES:
             m = rx.match(cmd)
-            if m:
+            # A match that spans spaces must not start with a launcher such as
+            # "sh -c ..." or "env ...": then the known path is an argument.
+            if m and (m.group(1) == first or os.path.basename(first) not in WRAPPERS):
                 self.kind, self.exe = kind, m.group(1)
                 break
 
@@ -428,6 +431,7 @@ class Turn(object):
         while True:
             with Guard():
                 live = live_tickets(mine=self.name)
+            self.check_eof()
             pos = live.index(self.name)
             if pos > 0:
                 key = ("queue", pos)
@@ -447,6 +451,7 @@ class Turn(object):
                         seq, " ".join(read_info(INFO).split()[:2]) or "starting")
                 else:
                     load, reasons = gate_reasons(ignore_runner, ignore_electron)
+                    self.check_eof()
                     if not reasons:
                         break
                     key = tuple(k for k, _ in reasons)
@@ -460,6 +465,21 @@ class Turn(object):
         drop_ticket(self.name, self.tfd)
         self.tfd = None
         self.write_info()
+        self.check_eof()
+
+    def check_eof(self):
+        """For hold, raise Cancelled when stdin already reached EOF; never blocks."""
+        if not self.watch_stdin:
+            return
+        try:
+            for _ in range(64):
+                ready, _, _ = select.select([0], [], [], 0)
+                if not ready:
+                    return
+                if not os.read(0, 65536):
+                    raise Cancelled()
+        except (OSError, ValueError):
+            raise Cancelled()
 
     def pause(self):
         """Sleep one poll; for hold, raise Cancelled as soon as stdin reaches EOF."""
@@ -573,6 +593,7 @@ def cmd_hold(label):
         say("ticket %d: your turn (load %.2f); holding until stdin closes or SIGTERM; "
             "export UAT_LOCK_HELD=1 UAT_LOCK_HOLDER_PID=%d to nested uat-lock calls"
             % (turn.seq, load1(), os.getpid()))
+        turn.check_eof()
         wait_for_release()
         say("ticket %d: released" % turn.seq)
         return 0
