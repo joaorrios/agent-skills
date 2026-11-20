@@ -9,7 +9,8 @@ Usage:
       reaches EOF or the process gets SIGTERM/SIGINT/SIGHUP. For harnesses
       (Node, Playwright) that hold the turn for an exact Electron session:
       spawn it with a stdin pipe, wait for READY, close stdin (or kill it) when
-      done. A crash or SIGKILL releases the turn too.
+      done. A crash or SIGKILL releases the turn too, and stdin EOF while still
+      waiting leaves the queue without printing READY (exit code 1).
   uat-lock status
       Show the load, the CI runner, the running holder, Electron test
       processes (in-queue or OUT-OF-QUEUE), and the queue.
@@ -24,6 +25,9 @@ once every gate is open:
     with GITHUB_ACTIONS=true, or with UAT_LOCK_IGNORE_RUNNER=1);
   - no Electron test process runs outside the holder's process tree (skipped
     with UAT_LOCK_IGNORE_ELECTRON=1).
+When the process list cannot be read, the CI runner and Electron gates stay
+closed, status reports them as unknown (exit code 1), and a nested call that
+cannot verify its holder exits with code 1.
 
 Re-entrancy: the command of `run` gets UAT_LOCK_HELD=1 and
 UAT_LOCK_HOLDER_PID=<holder pid>; `hold` prints that pid on stderr for its
@@ -34,11 +38,14 @@ and that the pid (or the process that started `hold`) is its ancestor.
 Environment: UAT_LOCK_DIR (default ~/.local/state/uat-lock), UAT_LOCK_MAX_LOAD,
 UAT_LOCK_POLL (seconds, default 2). Test hooks: UAT_LOCK_PS_FILE (a file in
 `ps -axo pid=,ppid=,etime=,command=` format used instead of ps) and
-UAT_LOCK_LOAD_FILE (a file holding the load average), both re-read each poll.
+UAT_LOCK_LOAD_FILE (a file holding the load average), both re-read each poll;
+UAT_LOCK_TEST_INFO_GATE (run holds its post-spawn run.lock.info update until
+this file exists).
 """
 import fcntl
 import os
 import re
+import select
 import signal
 import subprocess
 import sys
@@ -81,37 +88,59 @@ def load1():
 
 # ---------------------------------------------------------------- processes
 
+# One path segment character: anything but a space that starts a new argument
+# (a space followed by "-" or "/"), so executable paths keep their spaces.
+_SEG = r"(?:[^ ]| (?![-/]))"
+KNOWN_EXES = [
+    ("electron", re.compile(r"^(/%s*?/node_modules/%s*?/Electron\.app/Contents/MacOS/Electron)(?= |$)"
+                            % (_SEG, _SEG))),
+    ("electron", re.compile(r"^(/%s*?/node_modules/(?:%s*?/)?electron/dist/electron)(?= |$)"
+                            % (_SEG, _SEG))),
+    ("runner", re.compile(r"^((?:/%s*?/)?Runner\.Worker)(?= |$)" % _SEG)),
+]
+
+
+class InspectError(Exception):
+    """The process list could not be read."""
+
+
 class Proc(object):
-    __slots__ = ("pid", "ppid", "etime", "cmd")
+    __slots__ = ("pid", "ppid", "etime", "cmd", "kind", "exe")
 
     def __init__(self, pid, ppid, etime, cmd):
         self.pid, self.ppid, self.etime, self.cmd = pid, ppid, etime, cmd
-
-    @property
-    def exe(self):
-        return self.cmd.split(" ", 1)[0]
+        self.kind, self.exe = None, cmd.split(" ", 1)[0]
+        for kind, rx in KNOWN_EXES:
+            m = rx.match(cmd)
+            if m:
+                self.kind, self.exe = kind, m.group(1)
+                break
 
     @property
     def base(self):
         return os.path.basename(self.exe)
 
+    @property
+    def args(self):
+        return self.cmd[len(self.exe):]
+
 
 def process_table():
-    """{pid: Proc} from UAT_LOCK_PS_FILE when set, else from ps."""
+    """{pid: Proc} from UAT_LOCK_PS_FILE when set, else from ps; InspectError on failure."""
     path = os.environ.get("UAT_LOCK_PS_FILE")
     if path:
         try:
             with open(path) as f:
                 text = f.read()
-        except OSError:
-            text = ""
+        except OSError as e:
+            raise InspectError("cannot read UAT_LOCK_PS_FILE: %s" % e)
     else:
         try:
             text = subprocess.check_output(
                 ["ps", "-axww", "-o", "pid=,ppid=,etime=,command="],
                 universal_newlines=True, stderr=subprocess.DEVNULL)
-        except (OSError, subprocess.CalledProcessError):
-            text = ""
+        except (OSError, subprocess.CalledProcessError) as e:
+            raise InspectError("ps failed: %s" % e)
     table = {}
     for line in text.splitlines():
         parts = line.split(None, 3)
@@ -122,6 +151,8 @@ def process_table():
         except ValueError:
             continue
         table[pid] = Proc(pid, ppid, parts[2], parts[3])
+    if not path and os.getpid() not in table:
+        raise InspectError("ps returned no usable process list")
     return table
 
 
@@ -137,7 +168,7 @@ def ancestors(pid, table, include_self=True):
 
 
 def is_runner_worker(p):
-    return p.base == "Runner.Worker"
+    return p.kind == "runner"
 
 
 def inside_runner(table):
@@ -148,13 +179,12 @@ def inside_runner(table):
 
 def is_electron_test(p):
     """An Electron main process started for a test or QA, never a desktop app."""
-    cmd = p.cmd
-    if cmd.startswith("/Applications/") or "--type=" in cmd:
+    if p.cmd.startswith("/Applications/") or "--type=" in p.cmd:
         return False
-    if p.exe.endswith("Electron.app/Contents/MacOS/Electron") and "/node_modules/" in p.exe:
+    if p.kind == "electron":
         return True
     if p.base in ("Electron", "electron", "node"):
-        return "out/main/index.js" in cmd or "electron/loader.js" in cmd
+        return "out/main/index.js" in p.args or "electron/loader.js" in p.args
     return False
 
 
@@ -165,11 +195,26 @@ def electron_roots(table):
             if not any(a in hits for a in ancestors(pid, table, include_self=False))]
 
 
+def path_before(text, marker):
+    """The absolute path in text that ends right before marker, spaces kept."""
+    i = text.find(marker)
+    if i < 0:
+        return None
+    head = text[:i]
+    j = head.rfind(" /")
+    if j >= 0:
+        return head[j + 1:]
+    return head if head.startswith("/") else None
+
+
 def worktree_of(p):
-    if "/node_modules/" in p.cmd:
-        return p.cmd.split("/node_modules/")[0].split(" ")[-1] or "?"
-    m = re.search(r"(\S*)/out/main/index\.js", p.cmd)
-    return (m.group(1) or ".") if m else "?"
+    if "/node_modules/" in p.exe:
+        return path_before(p.exe, "/node_modules/") or "?"
+    for marker in ("/out/main/index.js", "/node_modules/"):
+        found = path_before(p.args, marker)
+        if found:
+            return found
+    return "." if "out/main/index.js" in p.args else "?"
 
 
 def short(cmd, width=80):
@@ -234,7 +279,12 @@ def inherited_turn():
         hp = 0
     info = parse_info(read_info(INFO))
     roots = {hp, info.get("owner", 0)} - {0}
-    chain = set(ancestors(os.getpid(), process_table()))
+    try:
+        chain = set(ancestors(os.getpid(), process_table()))
+    except InspectError as e:
+        # Queueing could wait behind our own ancestor forever; stop instead.
+        say("UAT_LOCK_HELD is set but the holder cannot be verified (%s); exiting" % e)
+        raise SystemExit(1)
     if hp and info.get("pid") == hp and held_by_someone(RUN_LOCK) and roots & chain:
         say("pid %d holds the turn for this process tree; passing through" % hp)
         return True
@@ -312,7 +362,12 @@ def gate_reasons(ignore_runner, ignore_electron):
         reasons.append(("load", "load %.2f to drop below %g" % (load, MAX_LOAD)))
     if ignore_runner and ignore_electron:
         return load, reasons
-    table = process_table()
+    try:
+        table = process_table()
+    except InspectError as e:
+        reasons.append(("inspect", "process inspection to work (%s); the CI runner and Electron "
+                        "gates stay closed until it does" % e))
+        return load, reasons
     if not ignore_runner:
         for p in sorted(table.values(), key=lambda p: p.pid):
             if is_runner_worker(p):
@@ -328,11 +383,16 @@ def gate_reasons(ignore_runner, ignore_electron):
     return load, reasons
 
 
+class Cancelled(Exception):
+    """stdin reached EOF before the turn started."""
+
+
 class Turn(object):
     """Queue, wait for run.lock and the gates, then hold run.lock until released."""
 
     def __init__(self, mode, label, what):
         self.mode, self.label, self.what = mode, label, what
+        self.watch_stdin = mode == "hold"
         self.seq = self.name = self.tfd = self.run_fd = None
         self.owner = os.getppid() if mode == "hold" else 0
 
@@ -341,15 +401,27 @@ class Turn(object):
             self.seq, os.getpid(), self.owner, child, self.mode, self.since, self.what)
 
     def write_info(self, child=0):
-        with open(INFO, "w") as f:
+        # Publish atomically: a nested call may read the file at any moment.
+        tmp = "%s.%d.tmp" % (INFO, os.getpid())
+        with open(tmp, "w") as f:
             f.write(self.info(child) + "\n")
+        gate = os.environ.get("UAT_LOCK_TEST_INFO_GATE")
+        if gate and child:
+            # Test hook: hold the post-spawn update until the command touches gate.
+            end = time.time() + 60
+            while not os.path.exists(gate) and time.time() < end:
+                time.sleep(0.02)
+        os.replace(tmp, INFO)
 
     def acquire(self):
         setup()
         self.since = now()
         self.seq, self.name, self.tfd = take_ticket(self.what)
-        table = process_table()
-        ignore_runner = os.environ.get("UAT_LOCK_IGNORE_RUNNER") == "1" or inside_runner(table)
+        try:
+            in_ci = inside_runner(process_table())
+        except InspectError:
+            in_ci = os.environ.get("GITHUB_ACTIONS") == "true"
+        ignore_runner = os.environ.get("UAT_LOCK_IGNORE_RUNNER") == "1" or in_ci
         ignore_electron = os.environ.get("UAT_LOCK_IGNORE_ELECTRON") == "1"
         last_key, last_print = None, 0.0
         seq = self.seq
@@ -384,12 +456,35 @@ class Turn(object):
             if key != last_key or t - last_print >= 30:
                 say(status)
                 last_key, last_print = key, t
-            time.sleep(POLL)
+            self.pause()
         drop_ticket(self.name, self.tfd)
         self.tfd = None
         self.write_info()
 
+    def pause(self):
+        """Sleep one poll; for hold, raise Cancelled as soon as stdin reaches EOF."""
+        if not self.watch_stdin:
+            time.sleep(POLL)
+            return
+        end = time.time() + POLL
+        while True:
+            left = end - time.time()
+            if left <= 0:
+                return
+            try:
+                ready, _, _ = select.select([0], [], [], left)
+                if ready and not os.read(0, 65536):
+                    raise Cancelled()
+            except (OSError, ValueError):
+                raise Cancelled()
+            if ready:
+                time.sleep(min(left, 0.05))
+
     def release(self):
+        try:
+            os.unlink("%s.%d.tmp" % (INFO, os.getpid()))
+        except OSError:
+            pass
         if self.tfd is not None:
             try:
                 drop_ticket(self.name, self.tfd)
@@ -481,17 +576,25 @@ def cmd_hold(label):
         wait_for_release()
         say("ticket %d: released" % turn.seq)
         return 0
+    except Cancelled:
+        say("ticket %d: stdin closed before the turn started; left the queue" % turn.seq)
+        return 1
     finally:
         turn.release()
 
 
 def cmd_status():
     setup()
-    table = process_table()
+    try:
+        table, failure = process_table(), None
+    except InspectError as e:
+        table, failure = {}, "unknown (process inspection unavailable: %s)" % e
     print("load (1 min): %.2f, limit %g" % (load1(), MAX_LOAD))
 
     workers = sorted((p for p in table.values() if is_runner_worker(p)), key=lambda p: p.pid)
-    if not workers:
+    if failure:
+        print("ci runner: %s" % failure)
+    elif not workers:
         print("ci runner: idle")
     for p in workers:
         print("ci runner: active Runner.Worker pid %d, elapsed %s" % (p.pid, p.etime))
@@ -503,7 +606,9 @@ def cmd_status():
 
     roots = holder_pids()
     procs = electron_roots(table)
-    if not procs:
+    if failure:
+        print("electron: %s" % failure)
+    elif not procs:
         print("electron: none")
     for p in procs:
         where = "in-queue" if roots & set(ancestors(p.pid, table)) else "OUT-OF-QUEUE"
@@ -521,7 +626,7 @@ def cmd_status():
         print("queue: empty")
     for i, (n, info) in enumerate(rows):
         print("queue %d: ticket %d %s" % (i + 1, int(n.split(".")[0]), info))
-    return 0
+    return 1 if failure else 0
 
 
 def parse_label(args):
