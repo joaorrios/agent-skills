@@ -541,5 +541,65 @@ class UatLockTest(unittest.TestCase):
                       .replace(os.path.expanduser("~"), "~"), out)
         self.assertNotIn("pid %d," % procs[2].pid, out)
 
+    @unittest.skipUnless(sys.platform == "darwin", "the second lookup is ps comm on macOS")
+    def test_failing_executable_lookup_keeps_gates_closed(self):
+        # The process listing works; only the separate argv[0] lookup fails.
+        bin_dir = os.path.join(self.tmp, "bin")
+        os.mkdir(bin_dir)
+        with open(os.path.join(bin_dir, "ps"), "w") as f:
+            f.write('#!/bin/sh\ncase "$*" in *comm=*) exit 1;; esac\nexec /bin/ps "$@"\n')
+        os.chmod(os.path.join(bin_dir, "ps"), 0o755)
+        electron = os.path.join(self.tmp, "node Project", "node_modules", "electron", "dist", "electron")
+        runner = os.path.join(self.tmp, "ci", "npm Runner", "bin", "Runner.Worker")
+        for path in (electron, runner):
+            os.makedirs(os.path.dirname(path))
+            shutil.copy(shutil.which("sleep"), path)
+        self.procs.extend([subprocess.Popen([electron, "30"]), subprocess.Popen([runner, "30"])])
+        env = dict(self.env, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
+        env.pop("UAT_LOCK_PS_FILE")
+        r = self.run_cmd("status", env=env)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("ci runner: unknown (process inspection unavailable: executable lookup", r.stdout)
+        self.assertIn("electron: unknown (process inspection unavailable: executable lookup", r.stdout)
+        p = self.start("run", "--", "echo", "ADMITTED", env=env, stdin=subprocess.DEVNULL)
+        self.wait_err(p, "process inspection to work (executable lookup (ps comm) failed")
+        p.kill()
+
+    def test_nested_call_passes_through_after_wrapper_sigkill(self):
+        # The command outlives its killed wrapper and keeps run.lock; a nested
+        # call from it must pass through instead of queueing behind itself.
+        go, done, out = (os.path.join(self.tmp, n) for n in ("go", "done", "out"))
+        script = ("while [ ! -f %s ]; do sleep 0.05; done; "
+                  "%s %s run -- echo NESTED > %s 2>&1; touch %s; sleep 30") % (
+                      go, sys.executable, SCRIPT, out, done)
+        wrapper = subprocess.Popen([sys.executable, SCRIPT, "run", "--", "sh", "-c", script],
+                                   env=self.real_env(), stdin=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, start_new_session=True)
+
+        def kill_group():
+            try:
+                os.killpg(wrapper.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            wrapper.wait()
+        self.addCleanup(kill_group)
+        info = os.path.join(self.dir, "run.lock.info")
+        deadline = time.time() + 30
+        while " child=0 " in (open(info).read() if os.path.exists(info) else " child=0 "):
+            self.assertLess(time.time(), deadline, "the wrapper never started its command")
+            time.sleep(0.05)
+        wrapper.kill()
+        wrapper.wait()
+        self.assertFalse(self.run_lock_free(), "the command should still hold run.lock")
+        open(go, "w").close()
+        deadline = time.time() + 30
+        while not os.path.exists(done):
+            self.assertLess(time.time(), deadline, "nested call queued behind its own lock")
+            time.sleep(0.05)
+        with open(out) as f:
+            text = f.read()
+        self.assertIn("NESTED", text)
+        self.assertIn("passing through", text)
+
 if __name__ == "__main__":
     unittest.main()
