@@ -22,7 +22,9 @@ the queue on its own. Only the head of the queue takes run.lock, and it starts
 once every gate is open:
   - the 1-minute load average is below UAT_LOCK_MAX_LOAD (default 8);
   - no GitHub Actions Runner.Worker job is running (skipped inside a CI job,
-    with GITHUB_ACTIONS=true, or with UAT_LOCK_IGNORE_RUNNER=1);
+    with GITHUB_ACTIONS=true, or with UAT_LOCK_IGNORE_RUNNER=1); a worker
+    whose job already waits in this queue does not count, so CI and local
+    runs take turns in arrival order instead of waiting on each other;
   - no Electron test process runs outside the holder's process tree (skipped
     with UAT_LOCK_IGNORE_ELECTRON=1).
 When the process list cannot be read, the CI runner and Electron gates stay
@@ -404,6 +406,28 @@ def drop_ticket(name, fd):
     os.close(fd)
 
 
+def queued_tickets():
+    """{pid: ticket} for every live ticket in this queue. Takes the Guard."""
+    setup()
+    with Guard():
+        rows = [(int(n.split(".")[0]), parse_info(read_info(os.path.join(TICKETS, n))).get("pid", 0))
+                for n in live_tickets()]
+    return {pid: seq for seq, pid in rows if pid}
+
+
+def worker_ticket(worker, table, queued):
+    """The ticket a job of this Runner.Worker holds in this queue, or None.
+
+    Such a worker is blocked on the queue itself: waiting for it would wait
+    for a ticket behind us, so the runner gate lets it through and FIFO order
+    gives its job the next turn.
+    """
+    for pid, seq in sorted(queued.items(), key=lambda kv: kv[1]):
+        if worker.pid in ancestors(pid, table, include_self=False):
+            return seq
+    return None
+
+
 def gate_reasons(ignore_runner, ignore_electron):
     """(load, [(key, text)]) for every closed gate, the holder being this process."""
     load = load1()
@@ -419,8 +443,10 @@ def gate_reasons(ignore_runner, ignore_electron):
                         "gates stay closed until it does" % e))
         return load, reasons
     if not ignore_runner:
+        queued = queued_tickets()
+        queued.pop(os.getpid(), None)
         for p in sorted(table.values(), key=lambda p: p.pid):
-            if is_runner_worker(p):
+            if is_runner_worker(p) and worker_ticket(p, table, queued) is None:
                 reasons.append(("runner %d" % p.pid, "CI job to finish (Runner.Worker pid %d, running %s)"
                                 % (p.pid, p.etime)))
     if not ignore_electron:
@@ -697,8 +723,11 @@ def cmd_status():
         print("ci runner: %s" % failure)
     elif not workers:
         print("ci runner: idle")
+    queued = queued_tickets() if workers else {}
     for p in workers:
-        print("ci runner: active Runner.Worker pid %d, elapsed %s" % (p.pid, p.etime))
+        seq = worker_ticket(p, table, queued)
+        print("ci runner: active Runner.Worker pid %d, elapsed %s%s" % (
+            p.pid, p.etime, "" if seq is None else ", its job waits in this queue (ticket %d)" % seq))
 
     if held_by_someone(RUN_LOCK):
         print("running: %s" % (read_info(INFO) or "a holder (starting)"))
