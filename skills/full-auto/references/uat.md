@@ -38,7 +38,6 @@ This step is complete when every acceptance case of the change has a step, every
 
 ## 3. Run the testers
 
-- **Your turn:** before opening the app to test, run `uat-lock run -- <test command>` ([`../scripts/uat-lock`](../scripts/uat-lock)) and wait your turn. It runs one UAT at a time on the machine, in order of arrival, once the 1-minute load average is below 8; `uat-lock status` shows the queue.
 - **Order:** the promise tester first, then the script tester. Run them one after the other whenever they share the screen; only one session can drive it.
 - **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and how to launch it, its fixture copy, the input tool for each item with that tool's known limits, the outputs it may observe as evidence (such as a file diffed against the commit noted before each step, or a record read back), and where to write its report. The promise tester gets the PR's list of what changes for the user exactly as published; the script tester gets the script.
 - **Watching:** keep a watcher on each tester that wakes you on permission prompts, questions, and the report appearing, and that reports only new events. Answer the approval prompts a tool asks on first use. Close a finished computer-use session before starting the next one, or it keeps the screen.
@@ -61,19 +60,13 @@ Make each finding judgeable:
 - **A native baseline** when the failure could be platform behavior: the same action in a minimal native app, at several delays, with numbers. Use real input events for it; scripted menu clicks skip what the OS does between click and action.
 - **Corroboration:** a finding both testers reached independently is the strongest evidence; one only the script tester hit may be a script error.
 
-Classification orders the findings; it does not settle them. Every finding still goes to the user, and none is fixed before the user confirms it.
+Classification orders the findings; it does not settle them. What happens to each finding is set by "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md).
 
 This step is complete when every finding has a class, counts, and the evidence behind it.
 
 ## 5. Report to the user
 
-Post the UAT result in the PR yourself and put it in your final report, a run with no findings included:
-
-- **PR body:** put the evidence in it with `gh pr edit <n> --body-file <file> --attach <media>`: one video, or one screenshot when there is no video, never both. The video sits alone in its paragraph, as `![](PATH/TO/VIDEO)` with the same file passed to `--attach`, so it renders as a player.
-- **PR comment:** the full report, the trace, and the other media, with `gh pr comment <n> --body-file <report> --attach ...`.
-
-`--attach` needs gh 2.103 or later and push access to the repository; see [Attaching files with GitHub CLI](https://docs.github.com/en/github-cli/github-cli/attaching-files-with-github-cli). The report covers:
-
+Deliver the UAT result as "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md) says. The report covers:
 
 - **What was tested:** the commit, the environment, each tester's input tool, and that tool's limits, so the user knows what a PASS does not cover.
 - **Per-item tables:** verdict, the physical action, what was observed, and the evidence files.
@@ -92,4 +85,4 @@ This step is complete when nothing started for UAT is still running.
 
 ## Retesting reworked cases in a later run
 
-The user answers after the run ends, so fixing confirmed findings is new work for a later run, which goes through the full-auto steps again. That run skips UAT unless the user asked for a rerun in the request; otherwise it asks at the end whether the user wants to look at the change directly or have UAT run again, and a small change never gets a rerun. When the user asks for one, retest the failed and fixed cases with the same kind of tester, on the head the batch closes out with, repeating timing-sensitive cases at least five times, instead of a full two-tester run, unless the fix changes what the user sees or does beyond those cases. Unit tests, E2E, and probes passing do not make a fix done; the user's own look or the retest does. Keep any automated test that comes out of a finding at the lowest layer that proves it.
+Whether a later run retests is set by "Later runs" under "Product validation gate" in [`../SKILL.md`](../SKILL.md). A retest covers the failed and fixed cases on the head the batch closes out with, run by the same kind of tester, with each timing-sensitive case repeated at least five times. It replaces a full two-tester run unless the fix changes what the user sees or does beyond those cases. Keep any automated test that comes out of a finding at the lowest layer that proves it.

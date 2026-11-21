@@ -10,7 +10,7 @@ compatibility: Git repository hosted on GitHub, with the gh CLI authenticated an
 The user said "full send" or "full stop": they are not watching this thread and want the work finished on your own. Your updates and your final message go unread until long after you stop. You own the work from its current state to the **ending** they named:
 
 - **Full send** ends with the PR merged.
-- **Full stop** ends with the PR ready for the user to merge, still open and unmerged.
+- **Full stop** ends with the PR open for the user to request the merge, and every step the repo lets you take before that request done and proven.
 
 Both endings share the steps; "Endings" holds what differs, including what each one does before step 1. A request for "full auto" that names neither ending takes full stop, and the report says so. Without a clear request for one of these, keep your normal level of autonomy.
 
@@ -48,9 +48,9 @@ Stay active from step 1 to step 8. Ending your turn while checks or bots are pen
 Proof is evidence you observed yourself in this session: command output, a reproduction, a screenshot. Use the most direct proof the change allows:
 
 - Reproduce the original failure, apply the fix, then watch the same reproduction pass.
-- Run the checks the repo's CI runs (typecheck, lint, tests).
+- Run the checks the repo's CI runs (typecheck, lint, tests). When a required check runs only once a merge is requested, read its workflow and run the same commands locally on the latest commit. That run is the part of the check you can finish before the request; the check itself stays pending until the merge is requested.
 - Add one focused test that fails without the fix, when the behavior has none and the repo has a test setup.
-- For UI and runtime behavior, run the app and look at the change; green mocked tests do not prove the user experience works. Attach screenshots to the PR when they help, with `gh pr comment <n> --body-file <file> --attach <media>`.
+- For UI and runtime behavior, run the app and look at the change; green mocked tests do not prove the user experience works.
 
 Proof and review cover the final diff: re-check behavior changes and meaningful conflict fixes made after them. A change you cannot prove is a blocker for the merge gate.
 
@@ -60,7 +60,7 @@ Full confidence means all of these hold on the latest commit:
 
 - Your proof covers every change in the diff.
 - When the product validation gate applies, UAT ran on this PR and nothing from it is open: the user dismissed each finding or accepted its fix, and accepted or did each BLOCKED or INCONCLUSIVE item and each check left to them. The user also accepted each change made after the run, other than a small one, by looking at it or through a rerun.
-- Required checks are green.
+- Required checks that run on the PR are green, and the workflow commands of those that run only once a merge is requested pass locally (see "Proof").
 - Review bots have finished, and each finding is fixed or dismissed with a written reason.
 - No human review still requests changes.
 - The repository's branch-sync requirements are satisfied (without any, the branch is up to date with the default branch), and GitHub reports the PR as mergeable.
@@ -71,28 +71,28 @@ An automated review asking for human review can be dismissed when your proof giv
 
 A change that alters what the user sees or does (a feature, a screen, a flow, its usability) needs **UAT** before the ending: agents use the running app as a user would, without the user. A change the user cannot see, such as a refactor, an internal API, docs, tests, or CI, skips it; when unsure, run it.
 
-- **How:** follow [`references/uat.md`](references/uat.md). Two testers drive the app like a user, with Playwright or Electron QA, and with computer use where the change touches the OS: one knows only what the PR promises, the other follows a script you write.
+- **How:** follow [`references/uat.md`](references/uat.md).
 - **Guard:** as soon as you know the gate applies, under either ending, apply full stop's guard against merging on its own (see "Full stop") and keep it until step 7. Required checks and a monitoring skill's "ready" never include UAT, so neither one is a signal to merge.
 - **Promise:** the promise tester works from the PR description's list of what changes for the user. When the PR already exists without that list, add it to the description before UAT.
 - **When:** once, at the end of the PR's first batch of work: after step 5, when the pushes so far have brought every merge-gate condition except UAT to hold, or left only blockers. A push by itself never triggers UAT, so a series of corrections gets one run, not one per push.
 - **Later runs:** a later full-auto run on the same PR, such as one that reworks the change after the user did not approve it, skips step 6 unless the user asked for a rerun in the request. Never rerun UAT for a small change, such as a copy, style, or one-line fix; when a small change fixes a finding, ask the user to look at it. When the later run changed more than that, ask at the end (see "Asking at the end"): "Do you want to look at it directly, or should we rerun UAT?" A rerun covers the reworked cases (see the reference).
-- **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
+- **Result:** every run goes to the user with its evidence, a run with no findings included, in the PR and in the report. In the PR, its media follow the repo's PR template. A finding is a claim, not a confirmed bug: testers often report intended behavior as one. Leave each finding unfixed and ask the user to confirm it (see "Asking at the end"); fix only what the user confirms. Checks only a person can make, such as one that needs a real physical keyboard, go to the user as UAT left to them.
 - **Ending:** under full send, switch to full stop whenever a finding, a BLOCKED or INCONCLUSIVE item, or a check left to the user awaits the user's answer, and whenever a change made after the run awaits the user's look; you may also switch when the user should see the change before it merges. Report the switch and its reason. Fixing confirmed findings is new work for a later run (see "Later runs").
 
 ## Endings
 
 ### Full send: merge
 
-- **Grants:** merging the PR once the merge gate passes.
-- **Close out:** merge with the method the repo uses: check its agent instructions, the allowed methods, and recent merged PRs. With a merge queue or auto-merge, stay until GitHub reports the PR as merged. Go through branch protection as configured, never around it with `--admin` or another bypass.
+- **Grants:** requesting the merge once the merge gate passes.
+- **Close out:** request the merge with the method the repo uses (merging, enabling auto-merge, or entering the merge queue): check its agent instructions, the allowed methods, and recent merged PRs. The request starts the repo's merge-time validation; watch it until GitHub reports the PR as merged, or a blocker stops it. To push a correction, first withdraw the request (disable auto-merge or leave the merge queue), take the correction through proof, review, and the UAT acceptance that applies, then recheck the merge gate and request the merge again. Go through branch protection as configured, never around it with `--admin` or another bypass.
 - **Report adds:** the merge commit.
 
 ### Full stop: hand off ready
 
-- **Limits:** the PR stays unmerged. Merging, enabling auto-merge, entering a merge queue, pushing to the default branch, and asking another agent to do any of these all wait for the user.
-- **Guard against merging on its own:** whenever the PR exists (before step 1 when it already does, right after opening it in step 4, and before each later push), disable auto-merge and take it out of any merge queue, and report what you changed. When you cannot, stop pushing and tending, and hand off at once with the **Blocked** verdict.
+- **Limits:** the user requests the merge (merging, enabling auto-merge, entering a merge queue, or the repo's equivalent), and that request starts the checks that wait for it. Pushing to the default branch and asking another agent to request the merge also wait for the user.
+- **Guard against merging on its own:** keep the merge unrequested until the user approves. Whenever the PR exists (before step 1 when it already does, right after opening it in step 4, and before each later push), disable auto-merge and take it out of any merge queue, and report what you changed. When you cannot, stop pushing and tending, and hand off at once with the **Blocked** verdict.
 - **Close out:** fetch the default branch and check the live PR: head, base, checks, reviews, and mergeability; it is open, not a draft, and not set to merge on its own. When someone else merged it, report that instead. Then give one verdict:
-  - **Ready to merge:** the merge gate passes.
+  - **Ready to merge:** the merge gate passes; what remains is the user's merge request and the checks it starts.
   - **Waiting for the user's UAT answers:** only the user's answers on UAT findings, BLOCKED or INCONCLUSIVE items, checks left to them, or changes made after the run remain, with or without a required approval.
   - **Waiting for approval:** only a required human approval remains, and you confirmed it is the actual blocker.
   - **Blocked:** what keeps the gate shut, what you tried, and what is needed.
