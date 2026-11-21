@@ -40,7 +40,9 @@ UAT_LOCK_POLL (seconds, default 2). Test hooks: UAT_LOCK_PS_FILE (a file in
 `ps -axo pid=,ppid=,etime=,command=` format used instead of ps) and
 UAT_LOCK_LOAD_FILE (a file holding the load average), both re-read each poll;
 UAT_LOCK_TEST_INFO_GATE (run holds its own post-spawn run.lock.info update
-until this file exists; the child has already published its pid by then).
+until this file exists; the child has already published its pid by then) and
+UAT_LOCK_TEST_SPAWN_GATE (run holds the window between starting its command
+and registering it, with stop signals deferred, until this file exists).
 """
 import errno
 import fcntl
@@ -566,6 +568,17 @@ class Turn(object):
             self.run_fd = None
 
 
+STOP_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+
+def wait_child(p):
+    while True:
+        try:
+            return p.wait()
+        except InterruptedError:
+            continue
+
+
 def install_signals(child):
     def on_signal(signum, frame):
         p = child.get("p")
@@ -574,7 +587,7 @@ def install_signals(child):
             return
         raise SystemExit(128 + signum)
 
-    for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    for s in STOP_SIGNALS:
         signal.signal(s, on_signal)
 
 
@@ -596,30 +609,45 @@ def cmd_run(label, cmd):
         turn.acquire()
         say("ticket %d: your turn (load %.2f); running: %s" % (turn.seq, load1(), " ".join(cmd)))
         env = dict(os.environ, UAT_LOCK_HELD="1", UAT_LOCK_HOLDER_PID=str(os.getpid()))
+        # Stop signals stay pending from before the fork until the child is
+        # registered, so they are forwarded to the command instead of
+        # dropping run.lock.info while the command keeps run.lock.
+        old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+
         def publish_child():
             # Runs in the child before exec: the command's pid is public
             # before the command starts, even if this wrapper dies right away.
             turn.write_info(os.getpid(), test_hook=False)
+            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
 
         try:
-            # The child inherits the run lock, so killing only this wrapper
-            # cannot admit the next holder while the command still runs.
-            child["p"] = subprocess.Popen(cmd, pass_fds=(turn.run_fd,), env=env,
-                                          preexec_fn=publish_child)
-        except (OSError, subprocess.SubprocessError) as e:
-            say("cannot run %s: %s" % (cmd[0], e))
-            return 127
-        turn.write_info(child["p"].pid)
-        while True:
             try:
-                rc = child["p"].wait()
-                break
-            except InterruptedError:
-                continue
+                # The child inherits the run lock, so killing only this wrapper
+                # cannot admit the next holder while the command still runs.
+                p = subprocess.Popen(cmd, pass_fds=(turn.run_fd,), env=env,
+                                     preexec_fn=publish_child)
+            except (OSError, subprocess.SubprocessError) as e:
+                say("cannot run %s: %s" % (cmd[0], e))
+                return 127
+            gate = os.environ.get("UAT_LOCK_TEST_SPAWN_GATE")
+            if gate:
+                # Test hook: hold the window between spawn and registration.
+                end = time.time() + 60
+                while not os.path.exists(gate) and time.time() < end:
+                    time.sleep(0.02)
+            child["p"] = p
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
+        turn.write_info(child["p"].pid)
+        rc = wait_child(child["p"])
         rc = rc if rc >= 0 else 128 - rc
         say("ticket %d: done, exit code %d; lock released" % (turn.seq, rc))
         return rc
     finally:
+        # Never drop the metadata while the command still holds run.lock.
+        p = child.get("p")
+        if p is not None and p.poll() is None:
+            wait_child(p)
         turn.release()
 
 
