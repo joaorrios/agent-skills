@@ -21,7 +21,7 @@ Repeat the copy to upgrade. Queue state lives in `~/.local/state/uat-lock/`, one
 
 The turn starts once the 1-minute load is below 8, no GitHub Actions `Runner.Worker` job is running, and no Electron test runs outside the queue. While you wait, `uat-lock status` names the owner of each blocker. The head of the queue closes orphaned Electron test processes on its own; one with a live launcher waits for its owner or the user.
 
-When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes every Electron test process started during the turn before the next turn begins. A holder killed with SIGKILL leaves its apps as orphans, which the next head closes. `uat-lock --help` lists the options and environment variables.
+When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes the Electron test processes its session started during the turn, and any left with no live launcher, before the next turn begins. An app another session or the user started meanwhile stays open. A holder killed with SIGKILL leaves its apps as orphans, which the next head closes. `uat-lock --help` lists the options and environment variables.
 
 ## Test
 
@@ -29,4 +29,4 @@ When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes every
 python3 -m unittest discover -s tools/uat-lock -p 'test_*.py'
 ```
 
-Each test uses its own temporary state directory and leaves the machine's queue untouched.
+Each test uses its own temporary state directory and leaves the machine's queue untouched. Tests that start real processes count only the Electron copies they place under their own temporary directory, so they never close another run's app.

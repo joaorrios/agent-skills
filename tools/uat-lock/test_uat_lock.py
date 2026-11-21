@@ -180,6 +180,7 @@ class UatLockTest(unittest.TestCase):
     def real_env(self):
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1")
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         return env
 
     def test_nested_run_and_hold_pass_through(self):
@@ -317,6 +318,7 @@ class UatLockTest(unittest.TestCase):
         electron = self.fake_electron()
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_KILL_GRACE="2")
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         earlier = self.spawn_orphan(electron)
         self.addCleanup(lambda: os.kill(earlier, signal.SIGKILL) if not self.gone(earlier, 0) else None)
         p = self.start("hold", env=dict(env, UAT_LOCK_IGNORE_ELECTRON="1"))
@@ -333,6 +335,7 @@ class UatLockTest(unittest.TestCase):
         electron = self.fake_electron()
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_KILL_GRACE="2")
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         pidfile = os.path.join(self.tmp, "pid")
         r = self.run_cmd("run", "--", "/bin/sh", "-c",
                          '"$0" 60 >/dev/null 2>&1 & echo $! > "$1"; exit 4', electron, pidfile, env=env)
@@ -356,6 +359,43 @@ class UatLockTest(unittest.TestCase):
             kills = {int(line.split()[0]) for line in f}
         self.assertEqual(kills, {702})
         self.assertIn("out-of-queue Electron pid 701", err)
+
+    def test_stop_signal_during_cleanup_still_kills_a_stuck_electron(self):
+        electron = os.path.join(self.tmp, "app", "node_modules", "electron", "dist", "electron")
+        os.makedirs(os.path.dirname(electron))
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
+                   UAT_LOCK_KILL_GRACE="3", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
+        env.pop("UAT_LOCK_PS_FILE")
+        p = self.start("hold", env=env)
+        self.wait_ready(p)
+        # An app that ignores SIGTERM, with argv[0] at an Electron path.
+        r = subprocess.run(["bash", "-c", '(exec -a "$0" "$1" -c "import signal, time; '
+                            'signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)") '
+                            '>/dev/null 2>&1 & echo $!', electron, sys.executable],
+                           capture_output=True, universal_newlines=True, check=True)
+        stuck = int(r.stdout)
+        self.addCleanup(lambda: os.kill(stuck, signal.SIGKILL) if not self.gone(stuck, 0) else None)
+        time.sleep(0.5)
+        self.release(p)
+        self.wait_err(p, "closing Electron pid %d" % stuck)
+        p.send_signal(signal.SIGTERM)
+        self.finish(p)
+        self.assertTrue(self.gone(stuck), self.errs.get(p.pid, ""))
+
+    def test_ended_turn_spares_electron_another_session_started(self):
+        kill_log = os.path.join(self.tmp, "kills")
+        p = self.start("hold", env=dict(self.env, UAT_LOCK_KILL_LOG=kill_log))
+        self.wait_ready(p)
+        self.set_ps([(700, 1, "10:00", "/usr/local/bin/claude"),
+                     (701, 700, "00:05", NM_ELECTRON + " ."),
+                     (702, 1, "00:04", NM_ELECTRON + " ."),
+                     (703, 702, "00:04", NM_ELECTRON.replace("MacOS/Electron", "Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper") + " --type=gpu-process")])
+        self.release(p)
+        rc, _, err = self.finish(p)
+        self.assertEqual(rc, 0)
+        with open(kill_log) as f:
+            kills = [tuple(map(int, line.split())) for line in f]
+        self.assertEqual(kills, [(702, signal.SIGTERM), (703, signal.SIGTERM)], err)
 
     # status
     def test_status_reports_runner_holder_electron_and_queue(self):
@@ -505,6 +545,7 @@ class UatLockTest(unittest.TestCase):
         os.chmod(os.path.join(bin_dir, "ps"), 0o755)
         env = dict(self.env, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         r = self.run_cmd("status", env=env)
         self.assertEqual(r.returncode, 1)
         self.assertIn("ci runner: unknown (process inspection unavailable: ps failed", r.stdout)
@@ -611,6 +652,7 @@ class UatLockTest(unittest.TestCase):
         self.procs.extend(procs)
         env = dict(self.env)
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         deadline = time.time() + 20
         while True:
             out = self.run_cmd("status", env=env).stdout
@@ -638,6 +680,7 @@ class UatLockTest(unittest.TestCase):
         self.procs.extend([subprocess.Popen([electron, "30"]), subprocess.Popen([runner, "30"])])
         env = dict(self.env, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         r = self.run_cmd("status", env=env)
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("ci runner: unknown (process inspection unavailable: executable lookup", r.stdout)
