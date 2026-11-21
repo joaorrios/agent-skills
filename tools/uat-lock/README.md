@@ -19,7 +19,9 @@ Repeat the copy to upgrade. Queue state lives in `~/.local/state/uat-lock/`, one
 - **A harness that opens and closes Electron itself** (Node, Playwright): spawn `uat-lock hold --label <ticket>` with a stdin pipe, launch Electron after it prints `READY`, and close its stdin when the session ends. A crash releases the turn too.
 - **Calls nested inside a turn** pass through: commands under `run` inherit the turn; under `hold`, export `UAT_LOCK_HELD=1 UAT_LOCK_HOLDER_PID=<hold pid>` to them.
 
-The turn starts once the 1-minute load is below 8, no GitHub Actions `Runner.Worker` job is running, and no Electron test runs outside the queue. While you wait, `uat-lock status` names the owner of each blocker; its owner or the user ends it. `uat-lock --help` lists the options and environment variables.
+The turn starts once the 1-minute load is below 8, no GitHub Actions `Runner.Worker` job is running, and no Electron test runs outside the queue. While you wait, `uat-lock status` names the owner of each blocker. The head of the queue closes orphaned Electron test processes on its own; one with a live launcher waits for its owner or the user.
+
+When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes every Electron test process started during the turn before the next turn begins. A holder killed with SIGKILL leaves its apps as orphans, which the next head closes. `uat-lock --help` lists the options and environment variables.
 
 ## Test
 

@@ -26,7 +26,13 @@ once every gate is open:
     whose job already waits in this queue does not count, so CI and local
     runs take turns in arrival order instead of waiting on each other;
   - no Electron test process runs outside the holder's process tree (skipped
-    with UAT_LOCK_IGNORE_ELECTRON=1).
+    with UAT_LOCK_IGNORE_ELECTRON=1). While it waits on this gate, the head
+    closes orphaned Electron test processes (no live launcher left, such as
+    one left by a session that died or one the OS opened from a bundle path).
+When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes
+every Electron test process that started during the turn, so the next turn
+never waits on an app nobody owns. A holder killed with SIGKILL cannot do
+this; the next head closes what it left as orphans.
 When the process list cannot be read, the CI runner and Electron gates stay
 closed, status reports them as unknown (exit code 1), and a nested call that
 cannot verify its holder exits with code 1.
@@ -41,6 +47,8 @@ Environment: UAT_LOCK_DIR (default ~/.local/state/uat-lock), UAT_LOCK_MAX_LOAD,
 UAT_LOCK_POLL (seconds, default 2). Test hooks: UAT_LOCK_PS_FILE (a file in
 `ps -axo pid=,ppid=,etime=,command=` format used instead of ps) and
 UAT_LOCK_LOAD_FILE (a file holding the load average), both re-read each poll;
+with UAT_LOCK_PS_FILE set, no real signal is sent and each close is appended
+to UAT_LOCK_KILL_LOG as "pid signal" when that is set;
 UAT_LOCK_TEST_INFO_GATE (run holds its own post-spawn run.lock.info update
 until this file exists; the child has already published its pid by then) and
 UAT_LOCK_TEST_SPAWN_GATE (run holds the window between starting its command
@@ -59,6 +67,7 @@ import time
 LOCK_DIR = os.path.expanduser(os.environ.get("UAT_LOCK_DIR", "~/.local/state/uat-lock"))
 MAX_LOAD = float(os.environ.get("UAT_LOCK_MAX_LOAD", "8"))
 POLL = float(os.environ.get("UAT_LOCK_POLL", "2"))
+KILL_GRACE = float(os.environ.get("UAT_LOCK_KILL_GRACE", "5"))
 TICKETS = os.path.join(LOCK_DIR, "tickets")
 GUARD = os.path.join(LOCK_DIR, "queue.lock")
 COUNTER = os.path.join(LOCK_DIR, "next")
@@ -282,6 +291,45 @@ def launcher_of(p, table):
     return None
 
 
+def send_signal(pid, sig):
+    if os.environ.get("UAT_LOCK_PS_FILE"):
+        log = os.environ.get("UAT_LOCK_KILL_LOG")
+        if log:
+            with open(log, "a") as f:
+                f.write("%d %d\n" % (pid, sig))
+        return
+    try:
+        os.kill(pid, sig)
+    except OSError:
+        pass
+
+
+def alive(pid):
+    if os.environ.get("UAT_LOCK_PS_FILE"):
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError as e:
+        return e.errno == errno.EPERM
+
+
+def close_electrons(procs, why):
+    """SIGTERM each process, then SIGKILL the ones still alive after KILL_GRACE."""
+    for p in procs:
+        say("closing Electron pid %d (worktree %s, running %s): %s"
+            % (p.pid, worktree_of(p), p.etime, why))
+        send_signal(p.pid, signal.SIGTERM)
+    end = time.time() + KILL_GRACE
+    left = [p for p in procs if alive(p.pid)]
+    while left and time.time() < end:
+        time.sleep(0.1)
+        left = [p for p in left if alive(p.pid)]
+    for p in left:
+        say("Electron pid %d ignored SIGTERM; sending SIGKILL" % p.pid)
+        send_signal(p.pid, signal.SIGKILL)
+
+
 # ------------------------------------------------------------------- holder
 
 def parse_info(text):
@@ -451,11 +499,14 @@ def gate_reasons(ignore_runner, ignore_electron):
                                 % (p.pid, p.etime)))
     if not ignore_electron:
         mine = os.getpid()
-        for p in electron_roots(table):
-            if mine not in ancestors(p.pid, table):
-                reasons.append(("electron %d" % p.pid,
-                                "out-of-queue Electron pid %d (worktree %s, running %s) to exit"
-                                % (p.pid, worktree_of(p), p.etime)))
+        outside = [p for p in electron_roots(table) if mine not in ancestors(p.pid, table)]
+        orphans = [p for p in outside if launcher_of(p, table) is None]
+        if orphans:
+            close_electrons(orphans, "orphaned, no live session owns it")
+        for p in outside:
+            reasons.append(("electron %d" % p.pid,
+                            "out-of-queue Electron pid %d (worktree %s, running %s) to exit"
+                            % (p.pid, worktree_of(p), p.etime)))
     return load, reasons
 
 
@@ -470,6 +521,7 @@ class Turn(object):
         self.mode, self.label, self.what = mode, label, what
         self.watch_stdin = mode == "hold"
         self.seq = self.name = self.tfd = self.run_fd = None
+        self.before = None
         self.pid = os.getpid()
         self.owner = os.getppid() if mode == "hold" else 0
 
@@ -536,10 +588,33 @@ class Turn(object):
                 say(status)
                 last_key, last_print = key, t
             self.pause()
+        self.before = self.electron_pids()
         drop_ticket(self.name, self.tfd)
         self.tfd = None
         self.write_info()
         self.check_eof()
+
+    @staticmethod
+    def electron_pids():
+        """{pid: Proc} for the Electron test processes running now, or None."""
+        try:
+            return {p.pid: p for p in electron_roots(process_table())}
+        except InspectError as e:
+            say("cannot list Electron processes (%s)" % e)
+            return None
+
+    def close_leftovers(self):
+        """Close the Electron test processes started during this turn."""
+        if self.before is None:
+            say("ticket %d: Electron processes at the start of the turn are unknown; "
+                "closing none" % self.seq)
+            return
+        now_running = self.electron_pids()
+        if now_running is None:
+            return
+        left = [p for pid, p in sorted(now_running.items()) if pid not in self.before]
+        if left:
+            close_electrons(left, "started during ticket %d, which ended" % self.seq)
 
     def check_eof(self):
         """For hold, raise Cancelled when stdin already reached EOF; never blocks."""
@@ -586,6 +661,11 @@ class Turn(object):
                 pass
             self.tfd = None
         if self.run_fd is not None:
+            # Close before dropping run.lock, so the next turn starts clean.
+            try:
+                self.close_leftovers()
+            except Exception as e:
+                say("ticket %d: closing leftover Electron processes failed: %s" % (self.seq, e))
             try:
                 os.unlink(INFO)
             except OSError:
