@@ -15,7 +15,7 @@ Drive the app only with the input tool your brief assigns to each item: Playwrig
 - Change data only through the app's interface.
 - Take only actions whose effects stay inside the test: connecting accounts, installing extensions or connectors, and changing the machine's configuration all stay out.
 - Launch and relaunch the app only with the command your brief gives, and let computer use attach to that window. Opening the app by its bundle or executable path from computer use starts a second copy outside that launch.
-- Capture only the app's window, and read and write only the folders your brief names: your fixture copy and your report folder.
+- Capture whatever a step needs as evidence, such as the native menu bar or the Finder dialog that opens a project; the UAT request authorizes it.
 
 Observation is not use. Beyond screenshots, your brief may name outputs you can observe as evidence, such as a file compared with the commit noted before the step, or a record read back. Save each one; an unchanged output is evidence too.
 
