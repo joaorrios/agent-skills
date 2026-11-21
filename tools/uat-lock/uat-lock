@@ -125,7 +125,11 @@ class Proc(object):
 
 
 def argv0_map(pids):
-    """{pid: argv[0]} read apart from the command line; missing pids fall back."""
+    """{pid: argv[0]} read apart from the command line; InspectError on failure.
+
+    A pid missing from the map (it exited between the two reads) falls back to
+    the first word of its command line.
+    """
     out = {}
     if sys.platform.startswith("linux"):
         for pid in pids:
@@ -135,16 +139,18 @@ def argv0_map(pids):
             except OSError:
                 continue
             out[pid] = argv0.decode("utf-8", "replace")
-        return out
-    try:
-        text = subprocess.check_output(["ps", "-axww", "-o", "pid=,comm="],
-                                       universal_newlines=True, stderr=subprocess.DEVNULL)
-    except (OSError, subprocess.CalledProcessError):
-        return out
-    for line in text.splitlines():
-        parts = line.strip().split(" ", 1)
-        if len(parts) == 2 and parts[0].isdigit():
-            out[int(parts[0])] = parts[1].strip()
+    else:
+        try:
+            text = subprocess.check_output(["ps", "-axww", "-o", "pid=,comm="],
+                                           universal_newlines=True, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError) as e:
+            raise InspectError("executable lookup (ps comm) failed: %s" % e)
+        for line in text.splitlines():
+            parts = line.strip().split(" ", 1)
+            if len(parts) == 2 and parts[0].isdigit():
+                out[int(parts[0])] = parts[1].strip()
+    if os.getpid() not in out:
+        raise InspectError("executable lookup returned no usable list")
     return out
 
 
@@ -313,7 +319,9 @@ def inherited_turn():
     except ValueError:
         hp = 0
     info = parse_info(read_info(INFO))
-    roots = {hp, info.get("owner", 0)} - {0}
+    # The command (child) keeps run.lock after its wrapper dies, so it is a
+    # valid root too; the holder pid and the held lock are still checked.
+    roots = {hp, info.get("owner", 0), info.get("child", 0)} - {0}
     try:
         chain = set(ancestors(os.getpid(), process_table()))
     except InspectError as e:
@@ -321,7 +329,7 @@ def inherited_turn():
         say("UAT_LOCK_HELD is set but the holder cannot be verified (%s); exiting" % e)
         raise SystemExit(1)
     if hp and info.get("pid") == hp and held_by_someone(RUN_LOCK) and roots & chain:
-        say("pid %d holds the turn for this process tree; passing through" % hp)
+        say("holder %d holds the turn for this process tree; passing through" % hp)
         return True
     say("UAT_LOCK_HELD is set but pid %s does not hold run.lock as an ancestor; queueing"
         % (hp or "?"))
