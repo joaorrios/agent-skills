@@ -39,9 +39,10 @@ Environment: UAT_LOCK_DIR (default ~/.local/state/uat-lock), UAT_LOCK_MAX_LOAD,
 UAT_LOCK_POLL (seconds, default 2). Test hooks: UAT_LOCK_PS_FILE (a file in
 `ps -axo pid=,ppid=,etime=,command=` format used instead of ps) and
 UAT_LOCK_LOAD_FILE (a file holding the load average), both re-read each poll;
-UAT_LOCK_TEST_INFO_GATE (run holds its post-spawn run.lock.info update until
-this file exists).
+UAT_LOCK_TEST_INFO_GATE (run holds its own post-spawn run.lock.info update
+until this file exists; the child has already published its pid by then).
 """
+import errno
 import fcntl
 import os
 import re
@@ -136,8 +137,12 @@ def argv0_map(pids):
             try:
                 with open("/proc/%d/cmdline" % pid, "rb") as f:
                     argv0 = f.read().split(b"\0", 1)[0]
-            except OSError:
-                continue
+            except OSError as e:
+                # Only a process that exited may be missing; any other error
+                # (EACCES, EIO, ...) hides an executable, so fail closed.
+                if e.errno in (errno.ENOENT, errno.ESRCH):
+                    continue
+                raise InspectError("executable lookup (/proc/%d/cmdline) failed: %s" % (pid, e))
             out[pid] = argv0.decode("utf-8", "replace")
     else:
         try:
@@ -437,19 +442,20 @@ class Turn(object):
         self.mode, self.label, self.what = mode, label, what
         self.watch_stdin = mode == "hold"
         self.seq = self.name = self.tfd = self.run_fd = None
+        self.pid = os.getpid()
         self.owner = os.getppid() if mode == "hold" else 0
 
     def info(self, child=0):
         return "ticket=%d pid=%d owner=%d child=%d mode=%s since=%s %s" % (
-            self.seq, os.getpid(), self.owner, child, self.mode, self.since, self.what)
+            self.seq, self.pid, self.owner, child, self.mode, self.since, self.what)
 
-    def write_info(self, child=0):
+    def write_info(self, child=0, test_hook=True):
         # Publish atomically: a nested call may read the file at any moment.
         tmp = "%s.%d.tmp" % (INFO, os.getpid())
         with open(tmp, "w") as f:
             f.write(self.info(child) + "\n")
         gate = os.environ.get("UAT_LOCK_TEST_INFO_GATE")
-        if gate and child:
+        if gate and child and test_hook:
             # Test hook: hold the post-spawn update until the command touches gate.
             end = time.time() + 60
             while not os.path.exists(gate) and time.time() < end:
@@ -590,11 +596,17 @@ def cmd_run(label, cmd):
         turn.acquire()
         say("ticket %d: your turn (load %.2f); running: %s" % (turn.seq, load1(), " ".join(cmd)))
         env = dict(os.environ, UAT_LOCK_HELD="1", UAT_LOCK_HOLDER_PID=str(os.getpid()))
+        def publish_child():
+            # Runs in the child before exec: the command's pid is public
+            # before the command starts, even if this wrapper dies right away.
+            turn.write_info(os.getpid(), test_hook=False)
+
         try:
             # The child inherits the run lock, so killing only this wrapper
             # cannot admit the next holder while the command still runs.
-            child["p"] = subprocess.Popen(cmd, pass_fds=(turn.run_fd,), env=env)
-        except OSError as e:
+            child["p"] = subprocess.Popen(cmd, pass_fds=(turn.run_fd,), env=env,
+                                          preexec_fn=publish_child)
+        except (OSError, subprocess.SubprocessError) as e:
             say("cannot run %s: %s" % (cmd[0], e))
             return 127
         turn.write_info(child["p"].pid)
