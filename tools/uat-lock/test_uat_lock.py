@@ -650,6 +650,59 @@ class UatLockTest(unittest.TestCase):
         self.assertIn("passing through", text)
         self.assertIn("pid=%d owner=0 child=%d " % (wrapper.pid, child), published)
 
+    def test_sigterm_between_spawn_and_registration_is_forwarded(self):
+        # SIGTERM lands after the command started but before the wrapper
+        # registered it: the wrapper must defer it, forward it to the command,
+        # and keep run.lock.info until the command exits.
+        spawn_gate, started, term, go, done, out = (
+            os.path.join(self.tmp, n) for n in ("spawn-gate", "started", "term", "go", "done", "out"))
+        script = ("trap 'echo got >> %s' TERM; echo $$ > %s; "
+                  "while [ ! -f %s ]; do sleep 0.05; done; "
+                  "%s %s run -- echo NESTED > %s 2>&1; touch %s") % (
+                      term, started, go, sys.executable, SCRIPT, out, done)
+        env = dict(self.real_env(), UAT_LOCK_TEST_SPAWN_GATE=spawn_gate)
+        wrapper = subprocess.Popen([sys.executable, SCRIPT, "run", "--", "sh", "-c", script],
+                                   env=env, stdin=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, start_new_session=True)
+
+        def kill_group():
+            try:
+                os.killpg(wrapper.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            wrapper.wait()
+        self.addCleanup(kill_group)
+        info = os.path.join(self.dir, "run.lock.info")
+
+        def wait_for(path, what, content=True):
+            deadline = time.time() + 30
+            while not os.path.exists(path) or (content and not read(path).strip()):
+                self.assertLess(time.time(), deadline, what)
+                time.sleep(0.05)
+
+        def read(path):
+            with open(path) as f:
+                return f.read()
+
+        wait_for(started, "the command never started")
+        wrapper.send_signal(signal.SIGTERM)
+        time.sleep(0.5)
+        self.assertIsNone(wrapper.poll(), "SIGTERM during spawn killed the wrapper")
+        self.assertTrue(os.path.exists(info))
+        open(spawn_gate, "w").close()
+        wait_for(term, "SIGTERM was not forwarded to the command")
+        self.assertIsNone(wrapper.poll(), "the wrapper must wait for its command")
+        self.assertTrue(os.path.exists(info), "metadata removed while the command runs")
+        self.assertFalse(self.run_lock_free())
+        open(go, "w").close()
+        wait_for(done, "nested call queued behind its own lock", content=False)
+        self.assertEqual(wrapper.wait(timeout=30), 0)
+        text = read(out)
+        self.assertIn("NESTED", text)
+        self.assertIn("passing through", text)
+        self.assertFalse(os.path.exists(info))
+        self.assertTrue(self.run_lock_free())
+
 def load_script(lock_dir):
     """Import uat-lock as a module whose state lives in lock_dir."""
     loader = importlib.machinery.SourceFileLoader("uat_lock_under_test", SCRIPT)
