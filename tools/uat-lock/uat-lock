@@ -605,6 +605,8 @@ class Turn(object):
                     except OSError:
                         os.close(fd)
                 if self.run_fd is None:
+                    if not ignore_electron:
+                        self.close_holderless_orphans()
                     key = ("running",)
                     status = "ticket %d: next in line, waiting for the running holder (%s) to finish" % (
                         seq, " ".join(read_info(INFO).split()[:2]) or "starting")
@@ -669,6 +671,25 @@ class Turn(object):
                 left.append(p)
         if left:
             close_electrons(left, table, "started during ticket %d, which ended" % self.seq)
+
+    @staticmethod
+    def close_holderless_orphans():
+        """Close orphaned Electron when the recorded holder and its command are dead.
+
+        An Electron started under `run` inherits run.lock from the command, so
+        once the holder dies it keeps the lock and no head reaches the gates.
+        """
+        info = parse_info(read_info(INFO))
+        holders = [info.get(k, 0) for k in ("pid", "child")]
+        if not any(holders) or any(alive(pid) for pid in holders if pid):
+            return
+        try:
+            table = process_table()
+        except InspectError:
+            return
+        orphans = [p for p in electron_roots(table) if launcher_of(p, table) is None]
+        if orphans:
+            close_electrons(orphans, table, "orphaned, holding run.lock after its holder died")
 
     def check_eof(self):
         """For hold, raise Cancelled when stdin already reached EOF; never blocks."""

@@ -382,6 +382,20 @@ class UatLockTest(unittest.TestCase):
         self.finish(p)
         self.assertTrue(self.gone(stuck), self.errs.get(p.pid, ""))
 
+    def test_orphan_holding_run_lock_after_its_holder_died_is_closed(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
+        env.pop("UAT_LOCK_PS_FILE")
+        first = self.start("run", "--", "sh", "-c", '"$0" 60 >/dev/null 2>&1 & sleep 2', electron,
+                           env=env, stdin=subprocess.DEVNULL)
+        self.wait_err(first, "your turn")
+        time.sleep(0.5)
+        first.kill()
+        first.wait()
+        r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=30)
+        self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
+        self.assertIn("holding run.lock after its holder died", r.stderr)
+
     def test_ended_turn_spares_electron_another_session_started(self):
         kill_log = os.path.join(self.tmp, "kills")
         p = self.start("hold", env=dict(self.env, UAT_LOCK_KILL_LOG=kill_log))
