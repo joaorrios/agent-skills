@@ -703,6 +703,27 @@ class UatLockTest(unittest.TestCase):
         self.assertFalse(os.path.exists(info))
         self.assertTrue(self.run_lock_free())
 
+    def test_runner_whose_job_waits_in_queue_does_not_block_the_head(self):
+        # Local ticket 0 waits on the runner gate; the worker's own job then
+        # queues as ticket 1. The worker never leaves the process list, so
+        # without the exemption both tickets wait for each other forever.
+        worker = (701, 1, "05:00", "/x/bin/Runner.Worker spawnclient 1 2")
+        self.set_ps([worker])
+        local = self.start("hold", "--label", "local")
+        self.wait_err(local, "CI job to finish (Runner.Worker pid 701")
+        ci_env = dict(self.env, GITHUB_ACTIONS="true")
+        ci = self.start("run", "--", "echo", "CI", env=ci_env, stdin=subprocess.DEVNULL)
+        self.wait_err(ci, "position 2 in queue")
+        self.set_ps([worker, (ci.pid, 701, "00:05", "%s %s run -- echo CI" % (sys.executable, SCRIPT))])
+        self.wait_ready(local)
+        self.wait_err(ci, "waiting for the running holder")
+        self.assertIn("ci runner: active Runner.Worker pid 701, elapsed 05:00, "
+                      "its job waits in this queue (ticket 1)", self.status())
+        self.release(local)
+        self.assertEqual(self.finish(local)[0], 0)
+        rc, out, _ = self.finish(ci)
+        self.assertEqual((rc, out), (0, "CI\n"))
+
 def load_script(lock_dir):
     """Import uat-lock as a module whose state lives in lock_dir."""
     loader = importlib.machinery.SourceFileLoader("uat_lock_under_test", SCRIPT)
