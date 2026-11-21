@@ -38,12 +38,6 @@ This step is complete when every acceptance case of the change has a step, every
 
 ## 3. Run the testers
 
-- **Your turn:** every UAT and Electron test run on the machine takes its turn in the one queue of [`../scripts/uat-lock`](../scripts/uat-lock) (`--help` has the details), which is the only lock; a harness keeps no lock of its own.
-  - A command: `uat-lock run --label <ticket> -- <test command>`.
-  - A harness that opens and closes Electron itself (Node, Playwright): spawn `uat-lock hold --label <ticket>` with a stdin pipe, launch Electron after it prints `READY`, and close its stdin when the session ends. A crash releases the turn too.
-  - Calls nested inside a turn pass through: commands under `run` inherit the turn; under `hold`, export `UAT_LOCK_HELD=1 UAT_LOCK_HOLDER_PID=<hold pid>` to them.
-
-  The turn starts once the load is below 8, no CI runner job is running, and no Electron test runs outside the queue. While you wait, `uat-lock status` names the owner of each blocker; its owner or the user ends it.
 - **Order:** the promise tester first, then the script tester. Run them one after the other whenever they share the screen; only one session can drive it.
 - **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and how to launch it, its fixture copy, the input tool for each item with that tool's known limits, the outputs it may observe as evidence (such as a file diffed against the commit noted before each step, or a record read back), and where to write its report. The promise tester gets the PR's list of what changes for the user exactly as published; the script tester gets the script.
 - **Watching:** keep a watcher on each tester that wakes you on permission prompts, questions, and the report appearing, and that reports only new events. Answer the approval prompts a tool asks on first use. Close a finished computer-use session before starting the next one, or it keeps the screen.
