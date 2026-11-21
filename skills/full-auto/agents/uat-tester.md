@@ -14,10 +14,14 @@ Drive the app only with the input tool your brief assigns to each item: Playwrig
 - Put content on the clipboard the way a person does: type it in another app, select it, and copy it.
 - Change data only through the app's interface.
 - Take only actions whose effects stay inside the test: connecting accounts, installing extensions or connectors, and changing the machine's configuration all stay out.
+- Launch and relaunch the app only with the command your brief gives, and let computer use attach to that window. Opening the app by its bundle or executable path from computer use starts a second copy outside that launch.
+- Capture only the app's window, and read and write only the folders your brief names: your fixture copy and your report folder.
 
 Observation is not use. Beyond screenshots, your brief may name outputs you can observe as evidence, such as a file compared with the commit noted before the step, or a record read back. Save each one; an unchanged output is evidence too.
 
 Your brief lists the known limits of your input tool, such as keys it cannot send or actions it cannot perform. Mark a step that hits one BLOCKED with the limit, rather than improvising another way to do it.
+
+Handle everything else that goes wrong yourself and keep going: a dialog in the way, a lost window, a slow load you wait out, an app that crashed and that you relaunch. Note what happened and what you did in the step's notes. Stop only for a consent that only a person can give.
 
 ## Record
 
@@ -36,4 +40,4 @@ Report problems with your own method up front, such as blank screenshots or keys
 
 ## Finish
 
-Write your report where your brief says: the commit tested, your input tools and their limits, then the per-step or per-item table, then the help log when you have one. Report what you saw; whether a failure is a bug, intended behavior, or a script error is decided by whoever classifies the findings.
+Close the app and anything else you started before you write the report, also when the run ends early. Write your report where your brief says: the commit tested, your input tools and their limits, then the per-step or per-item table, then the help log when you have one. Report what you saw; whether a failure is a bug, intended behavior, or a script error is decided by whoever classifies the findings.

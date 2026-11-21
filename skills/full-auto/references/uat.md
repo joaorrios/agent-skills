@@ -39,7 +39,9 @@ This step is complete when every acceptance case of the change has a step, every
 ## 3. Run the testers
 
 - **Order:** the promise tester first, then the script tester. Run them one after the other whenever they share the screen; only one session can drive it.
-- **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and how to launch it, its fixture copy, the input tool for each item with that tool's known limits, the outputs it may observe as evidence (such as a file diffed against the commit noted before each step, or a record read back), and where to write its report. The promise tester gets the PR's list of what changes for the user exactly as published; the script tester gets the script.
+- **Sessions:** start each tester in a fresh session with its final brief; a brief changed after launch reaches a session that already read the old one. Give each: [`../agents/uat-tester.md`](../agents/uat-tester.md), its role, the build and the command that launches it (through the project's UAT queue when it has one), its fixture copy, the input tool for each item with that tool's known limits, the outputs it may observe as evidence (such as a file diffed against the commit noted before each step, or a record read back), and where to write its report. The promise tester gets the PR's list of what changes for the user exactly as published; the script tester gets the script.
+- **Writing the briefs:** use a prompt-writing skill when one is available. Carry only the constraints the user, the project's instructions, or the tools' real limits give. A rule you add on your own, such as stopping at the first surprise, halts the run on something the tester could have handled.
+- **Scope:** name in each brief the folders the tester may read and write: its fixture copy and its report folder. Screenshots capture the app's window, not the whole screen, so other apps and personal files never land in the evidence.
 - **Watching:** keep a watcher on each tester that wakes you on permission prompts, questions, and the report appearing, and that reports only new events. Answer the approval prompts a tool asks on first use. Close a finished computer-use session before starting the next one, or it keeps the screen.
 
 This step is complete when both testers have written their reports, or a tester's run is recorded as blocked with the reason.
@@ -79,7 +81,7 @@ This step is complete when the result is posted in the PR and every finding, eve
 
 ## 6. Clean up
 
-Close the app under test, the tester sessions, the watchers, and anything keeping the display awake.
+Close the app under test, the tester sessions, the watchers, and anything keeping the display awake, also when a run failed or was interrupted. An app left open blocks the next run on the machine.
 
 This step is complete when nothing started for UAT is still running.
 
