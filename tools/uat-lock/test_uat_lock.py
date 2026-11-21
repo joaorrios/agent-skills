@@ -4,8 +4,14 @@ Every test uses its own temporary UAT_LOCK_DIR, a fake load file, and a fake
 process list unless it needs the real process tree, so it never touches the
 machine's queue.
 """
+import contextlib
+import errno
 import fcntl
+import importlib.machinery
+import importlib.util
+import io
 import os
+import re
 import select
 import shutil
 import signal
@@ -14,6 +20,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uat-lock")
 NM_ELECTRON = "/w/app/node_modules/.pnpm/electron@41/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
@@ -600,6 +607,127 @@ class UatLockTest(unittest.TestCase):
             text = f.read()
         self.assertIn("NESTED", text)
         self.assertIn("passing through", text)
+
+    def test_nested_call_passes_through_after_sigkill_in_publication_window(self):
+        # The wrapper is held before it publishes child= itself and is killed
+        # there; the child published its own pid before exec, so the nested
+        # call still recognises its inherited turn.
+        gate, started, go, done, out = (os.path.join(self.tmp, n)
+                                        for n in ("gate", "started", "go", "done", "out"))
+        script = ("echo $$ > %s; while [ ! -f %s ]; do sleep 0.05; done; "
+                  "%s %s run -- echo NESTED > %s 2>&1; touch %s; sleep 30") % (
+                      started, go, sys.executable, SCRIPT, out, done)
+        env = dict(self.real_env(), UAT_LOCK_TEST_INFO_GATE=gate)
+        wrapper = subprocess.Popen([sys.executable, SCRIPT, "run", "--", "sh", "-c", script],
+                                   env=env, stdin=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, start_new_session=True)
+
+        def kill_group():
+            try:
+                os.killpg(wrapper.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            wrapper.wait()
+        self.addCleanup(kill_group)
+        deadline = time.time() + 30
+        while not (os.path.exists(started) and open(started).read().strip()):
+            self.assertLess(time.time(), deadline, "the command never started")
+            time.sleep(0.05)
+        child = int(open(started).read())
+        with open(os.path.join(self.dir, "run.lock.info")) as f:
+            published = f.read()
+        wrapper.kill()
+        wrapper.wait()
+        self.assertFalse(self.run_lock_free(), "the command should still hold run.lock")
+        open(go, "w").close()
+        deadline = time.time() + 30
+        while not os.path.exists(done):
+            self.assertLess(time.time(), deadline, "nested call queued behind its own lock")
+            time.sleep(0.05)
+        with open(out) as f:
+            text = f.read()
+        self.assertIn("NESTED", text)
+        self.assertIn("passing through", text)
+        self.assertIn("pid=%d owner=0 child=%d " % (wrapper.pid, child), published)
+
+def load_script(lock_dir):
+    """Import uat-lock as a module whose state lives in lock_dir."""
+    loader = importlib.machinery.SourceFileLoader("uat_lock_under_test", SCRIPT)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    with mock.patch.dict(os.environ, {"UAT_LOCK_DIR": lock_dir}):
+        loader.exec_module(module)
+    return module
+
+
+class LinuxExecutableLookupTest(unittest.TestCase):
+    """ps works and this process's /proc entry is readable; others may fail."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="uat-lock-test-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.mod = load_script(os.path.join(self.tmp, "state"))
+        me = os.getpid()
+        self.listing = "".join("%d 1 %s %s\n" % row for row in [
+            (me, "00:10", "python3 test"),
+            (900, "01:00", "/w/node Project/node_modules/electron/dist/electron ."),
+            (901, "02:00", "/w/ci/npm Runner/bin/Runner.Worker spawnclient 1 2"),
+            (902, "00:01", "/bin/sleep 1"),
+        ])
+        self.cmdlines = {
+            me: b"python3\0test\0",
+            900: b"/w/node Project/node_modules/electron/dist/electron\0.\0",
+            901: b"/w/ci/npm Runner/bin/Runner.Worker\0spawnclient\0001\0002\0",
+        }
+
+    @contextlib.contextmanager
+    def linux(self, errors):
+        real_open = open
+
+        def fake_open(path, mode="r", *args, **kwargs):
+            m = re.match(r"/proc/(\d+)/cmdline$", str(path))
+            if not m:
+                return real_open(path, mode, *args, **kwargs)
+            pid = int(m.group(1))
+            code = errors.get(pid, 0 if pid in self.cmdlines else errno.ENOENT)
+            if code:
+                raise OSError(code, os.strerror(code), path)
+            return io.BytesIO(self.cmdlines[pid])
+
+        env = {k: v for k, v in os.environ.items() if not k.startswith("UAT_LOCK_")}
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch.object(self.mod.sys, "platform", "linux"), \
+                mock.patch.object(self.mod.subprocess, "check_output", return_value=self.listing), \
+                mock.patch.object(self.mod, "open", fake_open, create=True):
+            yield
+
+    def test_permission_errors_fail_closed(self):
+        for errors in ({900: errno.EACCES, 901: errno.EACCES}, {900: errno.EIO}, {901: errno.EPERM}):
+            with self.subTest(errors=errors), self.linux(errors):
+                with self.assertRaises(self.mod.InspectError):
+                    self.mod.process_table()
+                _, reasons = self.mod.gate_reasons(False, False)
+                self.assertIn("inspect", [key for key, _ in reasons])
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    rc = self.mod.cmd_status()
+                self.assertEqual(rc, 1)
+                self.assertIn("ci runner: unknown (process inspection unavailable: executable lookup",
+                              out.getvalue())
+                self.assertIn("electron: unknown (process inspection unavailable: executable lookup",
+                              out.getvalue())
+
+    def test_exited_processes_are_tolerated(self):
+        # 902 has no /proc entry (ENOENT): it exited between the two reads.
+        with self.linux({}):
+            table = self.mod.process_table()
+            _, reasons = self.mod.gate_reasons(False, False)
+        self.assertEqual(table[900].kind, "electron")
+        self.assertEqual(table[901].kind, "runner")
+        self.assertEqual(table[902].exe, "/bin/sleep")
+        keys = [key for key, _ in reasons]
+        self.assertIn("runner 901", keys)
+        self.assertIn("electron 900", keys)
 
 if __name__ == "__main__":
     unittest.main()
