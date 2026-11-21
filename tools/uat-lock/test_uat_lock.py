@@ -180,6 +180,7 @@ class UatLockTest(unittest.TestCase):
     def real_env(self):
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1")
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         return env
 
     def test_nested_run_and_hold_pass_through(self):
@@ -282,6 +283,133 @@ class UatLockTest(unittest.TestCase):
         out = self.status()
         self.assertIn("electron: pid 950", out)
         self.assertIn("electron: pid 951", out)
+
+    # closing leftover Electron processes
+    def fake_electron(self):
+        path = os.path.join(self.tmp, "app", "node_modules", "electron", "dist", "electron")
+        os.makedirs(os.path.dirname(path))
+        shutil.copy(shutil.which("sleep"), path)
+        return path
+
+    def spawn_orphan(self, path):
+        """Start path detached through a double fork, as a session that died leaves it."""
+        r = subprocess.run(["/bin/sh", "-c", '"$0" 60 >/dev/null 2>&1 & echo $!', path],
+                           capture_output=True, universal_newlines=True, check=True)
+        return int(r.stdout.strip())
+
+    def gone(self, pid, timeout=10):
+        end = time.time() + timeout
+        while time.time() < end:
+            try:
+                os.kill(pid, 0)
+            except OSError as e:
+                if e.errno == errno.ESRCH:
+                    return True
+            try:
+                with open("/proc/%d/stat" % pid) as f:
+                    if f.read().split(") ", 1)[1].startswith("Z"):
+                        return True
+            except OSError:
+                pass
+            time.sleep(0.05)
+        return False
+
+    def test_ended_turn_closes_the_electron_it_started(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_KILL_GRACE="2")
+        env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
+        earlier = self.spawn_orphan(electron)
+        self.addCleanup(lambda: os.kill(earlier, signal.SIGKILL) if not self.gone(earlier, 0) else None)
+        p = self.start("hold", env=dict(env, UAT_LOCK_IGNORE_ELECTRON="1"))
+        self.wait_ready(p)
+        started = self.spawn_orphan(electron)
+        self.release(p)
+        rc, _, err = self.finish(p)
+        self.assertEqual(rc, 0)
+        self.assertTrue(self.gone(started), err)
+        self.assertIn("closing Electron pid %d" % started, err)
+        self.assertFalse(self.gone(earlier, 0), "an Electron from before the turn was closed")
+
+    def test_ended_run_closes_the_electron_its_command_left(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_KILL_GRACE="2")
+        env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
+        pidfile = os.path.join(self.tmp, "pid")
+        r = self.run_cmd("run", "--", "/bin/sh", "-c",
+                         '"$0" 60 >/dev/null 2>&1 & echo $! > "$1"; exit 4', electron, pidfile, env=env)
+        self.assertEqual(r.returncode, 4)
+        with open(pidfile) as f:
+            pid = int(f.read())
+        self.assertTrue(self.gone(pid), r.stderr)
+
+    def test_head_closes_orphaned_electron_and_spares_owned_ones(self):
+        kill_log = os.path.join(self.tmp, "kills")
+        self.set_ps([(700, 1, "10:00", "/usr/local/bin/claude"),
+                     (701, 700, "05:00", NM_ELECTRON + " ."),
+                     (702, 1, "04:00", NM_ELECTRON + " .")])
+        p = self.start("run", "--", "true", stdin=subprocess.DEVNULL,
+                       env=dict(self.env, UAT_LOCK_KILL_LOG=kill_log))
+        self.wait_err(p, "closing Electron pid 702")
+        self.set_ps([])
+        rc, _, err = self.finish(p)
+        self.assertEqual(rc, 0)
+        with open(kill_log) as f:
+            kills = {int(line.split()[0]) for line in f}
+        self.assertEqual(kills, {702})
+        self.assertIn("out-of-queue Electron pid 701", err)
+
+    def test_stop_signal_during_cleanup_still_kills_a_stuck_electron(self):
+        electron = os.path.join(self.tmp, "app", "node_modules", "electron", "dist", "electron")
+        os.makedirs(os.path.dirname(electron))
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
+                   UAT_LOCK_KILL_GRACE="3", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
+        env.pop("UAT_LOCK_PS_FILE")
+        p = self.start("hold", env=env)
+        self.wait_ready(p)
+        # An app that ignores SIGTERM, with argv[0] at an Electron path.
+        r = subprocess.run(["bash", "-c", '(exec -a "$0" "$1" -c "import signal, time; '
+                            'signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)") '
+                            '>/dev/null 2>&1 & echo $!', electron, sys.executable],
+                           capture_output=True, universal_newlines=True, check=True)
+        stuck = int(r.stdout)
+        self.addCleanup(lambda: os.kill(stuck, signal.SIGKILL) if not self.gone(stuck, 0) else None)
+        time.sleep(0.5)
+        self.release(p)
+        self.wait_err(p, "closing Electron pid %d" % stuck)
+        p.send_signal(signal.SIGTERM)
+        self.finish(p)
+        self.assertTrue(self.gone(stuck), self.errs.get(p.pid, ""))
+
+    def test_orphan_holding_run_lock_after_its_holder_died_is_closed(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
+        env.pop("UAT_LOCK_PS_FILE")
+        first = self.start("run", "--", "sh", "-c", '"$0" 60 >/dev/null 2>&1 & sleep 2', electron,
+                           env=env, stdin=subprocess.DEVNULL)
+        self.wait_err(first, "your turn")
+        time.sleep(0.5)
+        first.kill()
+        first.wait()
+        r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=30)
+        self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
+        self.assertIn("holding run.lock after its holder died", r.stderr)
+
+    def test_ended_turn_spares_electron_another_session_started(self):
+        kill_log = os.path.join(self.tmp, "kills")
+        p = self.start("hold", env=dict(self.env, UAT_LOCK_KILL_LOG=kill_log))
+        self.wait_ready(p)
+        self.set_ps([(700, 1, "10:00", "/usr/local/bin/claude"),
+                     (701, 700, "00:05", NM_ELECTRON + " ."),
+                     (702, 1, "00:04", NM_ELECTRON + " ."),
+                     (703, 702, "00:04", NM_ELECTRON.replace("MacOS/Electron", "Frameworks/Electron Helper.app/Contents/MacOS/Electron Helper") + " --type=gpu-process")])
+        self.release(p)
+        rc, _, err = self.finish(p)
+        self.assertEqual(rc, 0)
+        with open(kill_log) as f:
+            kills = [tuple(map(int, line.split())) for line in f]
+        self.assertEqual(kills, [(702, signal.SIGTERM), (703, signal.SIGTERM)], err)
 
     # status
     def test_status_reports_runner_holder_electron_and_queue(self):
@@ -431,6 +559,7 @@ class UatLockTest(unittest.TestCase):
         os.chmod(os.path.join(bin_dir, "ps"), 0o755)
         env = dict(self.env, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         r = self.run_cmd("status", env=env)
         self.assertEqual(r.returncode, 1)
         self.assertIn("ci runner: unknown (process inspection unavailable: ps failed", r.stdout)
@@ -537,6 +666,7 @@ class UatLockTest(unittest.TestCase):
         self.procs.extend(procs)
         env = dict(self.env)
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         deadline = time.time() + 20
         while True:
             out = self.run_cmd("status", env=env).stdout
@@ -564,6 +694,7 @@ class UatLockTest(unittest.TestCase):
         self.procs.extend([subprocess.Popen([electron, "30"]), subprocess.Popen([runner, "30"])])
         env = dict(self.env, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
         env.pop("UAT_LOCK_PS_FILE")
+        env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         r = self.run_cmd("status", env=env)
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("ci runner: unknown (process inspection unavailable: executable lookup", r.stdout)
