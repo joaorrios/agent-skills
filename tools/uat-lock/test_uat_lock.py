@@ -297,6 +297,13 @@ class UatLockTest(unittest.TestCase):
                            capture_output=True, universal_newlines=True, check=True)
         return int(r.stdout.strip())
 
+    @staticmethod
+    def kill_quietly(pid):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
     def gone(self, pid, timeout=10):
         end = time.time() + timeout
         while time.time() < end:
@@ -320,7 +327,7 @@ class UatLockTest(unittest.TestCase):
         env.pop("UAT_LOCK_PS_FILE")
         env["UAT_LOCK_TEST_ELECTRON_UNDER"] = self.tmp
         earlier = self.spawn_orphan(electron)
-        self.addCleanup(lambda: os.kill(earlier, signal.SIGKILL) if not self.gone(earlier, 0) else None)
+        self.addCleanup(self.kill_quietly, earlier)
         p = self.start("hold", env=dict(env, UAT_LOCK_IGNORE_ELECTRON="1"))
         self.wait_ready(p)
         started = self.spawn_orphan(electron)
@@ -374,7 +381,7 @@ class UatLockTest(unittest.TestCase):
                             '>/dev/null 2>&1 & echo $!', electron, sys.executable],
                            capture_output=True, universal_newlines=True, check=True)
         stuck = int(r.stdout)
-        self.addCleanup(lambda: os.kill(stuck, signal.SIGKILL) if not self.gone(stuck, 0) else None)
+        self.addCleanup(self.kill_quietly, stuck)
         time.sleep(0.5)
         self.release(p)
         self.wait_err(p, "closing Electron pid %d" % stuck)
@@ -405,7 +412,7 @@ class UatLockTest(unittest.TestCase):
         hung = self.start("hold", env=env)
         self.wait_ready(hung)
         app = self.spawn_orphan(electron)
-        self.addCleanup(lambda: os.kill(app, signal.SIGKILL) if not self.gone(app, 0) else None)
+        self.addCleanup(self.kill_quietly, app)
         r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=30)
         self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
         self.assertIn("exceeded", r.stderr)
@@ -443,6 +450,47 @@ class UatLockTest(unittest.TestCase):
         self.assertIn("still held", r.stderr)
         app.wait(timeout=10)
         stuck.wait(timeout=10)
+
+    def test_holder_limit_rules_its_turn(self):
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
+                   UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
+        env.pop("UAT_LOCK_PS_FILE")
+        holder = self.start("hold", env=dict(env, UAT_LOCK_MAX_TURN="100"))
+        self.wait_ready(holder)
+        waiter = self.start("run", "--", "true", env=dict(env, UAT_LOCK_MAX_TURN="0.01"),
+                            stdin=subprocess.DEVNULL)
+        self.wait_err(waiter, "waiting for the running holder")
+        time.sleep(2)
+        self.assertIsNone(holder.poll())
+        self.assertIn("of 100m max", self.status())
+        self.release(holder)
+        self.assertEqual(self.finish(waiter)[0], 0)
+
+    def test_expired_sweep_spares_another_session_electron(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp,
+                   UAT_LOCK_MAX_TURN="0.02", UAT_LOCK_KILL_GRACE="0.3")
+        env.pop("UAT_LOCK_PS_FILE")
+        stuck = self.start("hold", env=env)
+        self.wait_ready(stuck)
+        orphan = self.spawn_orphan(electron)
+        self.addCleanup(self.kill_quietly, orphan)
+        # Another live session, a process that is not a launch wrapper, starts its own app.
+        other = subprocess.Popen([sys.executable, "-c", "import subprocess, sys, time; "
+                                  "p = subprocess.Popen([sys.argv[1], '60']); print(p.pid, flush=True); "
+                                  "time.sleep(60)", electron], stdout=subprocess.PIPE)
+        self.procs.append(other)
+        theirs = int(other.stdout.readline())
+        self.addCleanup(self.kill_quietly, theirs)
+        stuck.send_signal(signal.SIGSTOP)
+        self.addCleanup(lambda: stuck.poll() is None and stuck.send_signal(signal.SIGCONT))
+        # The waiter then waits on the other session's Electron at its own gate.
+        waiter = self.start("run", "--", "true", env=env, stdin=subprocess.DEVNULL)
+        self.wait_err(waiter, "out-of-queue Electron pid %d" % theirs, timeout=30)
+        err = self.errs.get(waiter.pid, "")
+        self.assertIn("still held", err)
+        self.assertTrue(self.gone(orphan), err)
+        self.assertFalse(self.gone(theirs, 0), "another session's Electron was closed")
 
     def test_turn_within_the_limit_is_left_alone(self):
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",

@@ -30,11 +30,11 @@ once every gate is open:
     closes orphaned Electron test processes (no live launcher left, such as
     one left by a session that died or one the OS opened from a bundle path).
 A turn lasts at most UAT_LOCK_MAX_TURN minutes of wall-clock time (default
-90; time asleep counts). Past that, the head of the queue SIGTERMs the
+90; time asleep counts), as set in the holder's environment. Past that, the head of the queue SIGTERMs the
 holder, which releases and closes what its session left; if the turn is
 still held after a grace, it stops every process with run.lock open and
-every Electron test process started during the turn, even when the session
-that holds it is alive but hung. Set a higher UAT_LOCK_MAX_TURN for a long
+the Electron test processes the turn's session started or left orphaned
+during the turn, even when that session is alive but hung. Set a higher UAT_LOCK_MAX_TURN for a long
 exploratory hold. When a `run` command ends, processes it left with run.lock
 open are stopped too, so they cannot hold the turn with no holder shown.
 When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes
@@ -373,24 +373,52 @@ def etime_seconds(etime):
         return None
 
 
-def started_since(p, epoch):
-    """True when process p started at or after epoch (to the second ps reports)."""
+def start_epoch(p):
+    """When process p started, from ps etime; whole seconds, so up to 1 s late. None when unreadable."""
     age = etime_seconds(p.etime)
-    return age is not None and time.time() - age >= epoch - 2
+    return None if age is None else time.time() - age
 
 
-def lock_holders():
-    """Pids other than this one with run.lock open, from lsof; None when lsof fails.
+def started_since(p, epoch):
+    """True when process p started at or after epoch, with ps's one-second slack."""
+    start = start_epoch(p)
+    return start is not None and start >= epoch - 2
+
+
+class LsofError(Exception):
+    """lsof could not list the processes holding run.lock."""
+
+
+SCRIPT_NAME = os.path.basename(sys.argv[0]) or "uat-lock"
+
+
+def lock_holders(table):
+    """Pids with run.lock open, from lsof; LsofError when lsof fails.
 
     Commands under `run` inherit the lock, so these are every process that
-    keeps the turn busy, whatever run.lock.info says.
+    keeps the turn busy, whatever run.lock.info says. Other uat-lock calls
+    (status, a head trying the lock, a nested check) open it for an instant
+    and are left out.
     """
     try:
-        out = subprocess.run(["lsof", "-t", "--", RUN_LOCK], stdout=subprocess.PIPE,
-                             stderr=subprocess.DEVNULL, universal_newlines=True, timeout=20).stdout
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return {int(x) for x in out.split() if x.isdigit()} - {os.getpid()}
+        r = subprocess.run(["lsof", "-t", "--", RUN_LOCK], stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise LsofError(str(e))
+    # lsof exits 1 when nothing has the file open, often with warnings about
+    # other mounts on stderr; any other exit means it could not look.
+    if r.returncode not in (0, 1):
+        raise LsofError("exit %d: %s" % (r.returncode, r.stderr.strip()[:200]))
+    pids = {int(x) for x in r.stdout.split() if x.isdigit()} - {os.getpid()}
+    return {pid for pid in pids if not (pid in table and is_uat_lock(table[pid]))}
+
+
+def is_uat_lock(p):
+    """True for a uat-lock process: the script run directly or through python."""
+    if p.base == SCRIPT_NAME:
+        return True
+    first = p.args.split(None, 1)[0] if p.args.strip() else ""
+    return p.base.startswith("python") and os.path.basename(first) == SCRIPT_NAME
 
 
 def terminate(pids, table):
@@ -416,7 +444,7 @@ def terminate(pids, table):
 
 def parse_info(text):
     head = text.split(" since=", 1)[0]
-    return {k: int(v) for k, v in re.findall(r"\b(ticket|pid|owner|child|turn)=(\d+)", head)}
+    return {k: int(v) for k, v in re.findall(r"\b(ticket|pid|owner|child|turn|limit|queued|session)=(\d+)", head)}
 
 
 def read_info(path):
@@ -605,14 +633,16 @@ class Turn(object):
         self.seq = self.name = self.tfd = self.run_fd = None
         self.before = self.session = None
         self.started = False
-        self.turn = 0
+        self.turn = self.queued = 0
         self.expired = None
         self.pid = os.getpid()
         self.owner = os.getppid() if mode == "hold" else 0
 
     def info(self, child=0):
-        return "ticket=%d pid=%d owner=%d child=%d turn=%d mode=%s since=%s %s" % (
-            self.seq, self.pid, self.owner, child, self.turn, self.mode, self.since, self.what)
+        return ("ticket=%d pid=%d owner=%d child=%d turn=%d limit=%d queued=%d session=%d "
+                "mode=%s since=%s %s" % (
+                    self.seq, self.pid, self.owner, child, self.turn, MAX_TURN, self.queued,
+                    self.session or 0, self.mode, self.since, self.what))
 
     def write_info(self, child=0, test_hook=True):
         # Publish atomically: a nested call may read the file at any moment.
@@ -630,6 +660,7 @@ class Turn(object):
     def acquire(self):
         setup()
         self.since = now()
+        self.queued = int(time.time())
         self.seq, self.name, self.tfd = take_ticket(self.what)
         try:
             in_ci = inside_runner(process_table())
@@ -657,7 +688,7 @@ class Turn(object):
                     except OSError:
                         os.close(fd)
                 if self.run_fd is None:
-                    self.end_expired_turn()
+                    self.end_expired_turn(ignore_electron)
                     if not ignore_electron:
                         self.close_holderless_orphans()
                     key = ("running",)
@@ -726,45 +757,59 @@ class Turn(object):
         if left:
             close_electrons(left, table, "started during ticket %d, which ended" % self.seq)
 
-    def end_expired_turn(self):
-        """End a turn that outlived MAX_TURN, even if its session is alive but hung.
+    def end_expired_turn(self, ignore_electron):
+        """End a turn that outlived its limit, even if its session is alive but hung.
 
         First SIGTERM the uat-lock holder, which releases and closes what its
         session left. When the turn is still held EXPIRE_GRACE later, stop every
-        process that keeps run.lock open and every Electron test process started
-        during the turn, whoever launched it.
+        process that keeps run.lock open and the Electron test processes the
+        turn's session started or left orphaned during the turn.
         """
         info = parse_info(read_info(INFO))
         turn = info.get("turn", 0)
-        if not turn or time.time() - turn < MAX_TURN:
+        # The holder's own limit rules its turn, so a holder that raised it keeps it.
+        limit = info.get("limit", MAX_TURN)
+        if not turn or time.time() - turn < limit:
             self.expired = None
             return
         key = (info.get("ticket"), turn)
         try:
             table = process_table()
-        except InspectError:
+        except InspectError as e:
+            say("ticket %d: cannot inspect the expired turn (%s)" % (self.seq, e))
             return
-        # A pid that started after the turn did is a reused one, not the holder.
-        ours = [pid for pid in (info.get("pid", 0), info.get("child", 0))
-                if pid in table and not started_since(table[pid], turn + 3)]
+        # The holder ran before it queued; a pid that started later was reused.
+        pid = info.get("pid", 0)
+        queued = info.get("queued", 0)
+        start = start_epoch(table[pid]) if pid in table else None
+        holder = pid if start is not None and queued and start <= queued + 2 else 0
         if self.expired is None or self.expired[0] != key:
             say("ticket %d: turn of ticket %s exceeded %g minutes; stopping its holder %s"
-                % (self.seq, info.get("ticket", "?"), MAX_TURN / 60, " ".join(map(str, ours)) or "(gone)"))
-            if ours:
-                send_signal(ours[0], signal.SIGTERM)
+                % (self.seq, info.get("ticket", "?"), limit / 60, holder or "(gone)"))
+            if holder:
+                send_signal(holder, signal.SIGTERM)
             self.expired = (key, time.time())
             return
         if time.time() - self.expired[1] < EXPIRE_GRACE:
             return
-        holders = lock_holders() or set()
-        apps = [p for p in electron_roots(table) if started_since(p, turn)]
+        self.expired = (key, time.time())
+        try:
+            holders = lock_holders(table)
+        except LsofError as e:
+            say("ticket %d: cannot list the processes holding run.lock (%s); the expired "
+                "turn stays held until lsof works or its owner ends it" % (self.seq, e))
+            holders = set()
+        session = info.get("session", 0)
+        apps = [] if ignore_electron else [
+            p for p in electron_roots(table) if started_since(p, turn)
+            and (launcher_of(p, table) is None or launcher_of(p, table).pid == session)]
+        targets = sorted(holders | ({holder} if holder else set()))
         say("ticket %d: turn of ticket %s still held %gs after SIGTERM; stopping %s"
             % (self.seq, info.get("ticket", "?"), EXPIRE_GRACE,
-               " ".join(map(str, sorted(set(ours) | holders | {p.pid for p in apps}))) or "nothing found"))
+               " ".join(map(str, sorted(set(targets) | {p.pid for p in apps}))) or "nothing found"))
         if apps:
             close_electrons(apps, table, "started during the expired turn of ticket %s" % info.get("ticket", "?"))
-        terminate(sorted(set(ours) | holders), table)
-        self.expired = (key, time.time())
+        terminate(targets, table)
 
     @staticmethod
     def close_holderless_orphans():
@@ -784,7 +829,11 @@ class Turn(object):
         orphans = [p for p in electron_roots(table) if launcher_of(p, table) is None]
         if orphans:
             close_electrons(orphans, table, "orphaned, holding run.lock after its holder died")
-        left = lock_holders()
+        try:
+            left = lock_holders(table)
+        except LsofError as e:
+            say("cannot list the processes holding run.lock after its holder died (%s)" % e)
+            return
         if left:
             say("stopping pids %s, which keep run.lock after its holder died"
                 % " ".join(map(str, sorted(left))))
@@ -847,11 +896,12 @@ class Turn(object):
                 try:
                     # Processes the command left behind inherited run.lock and
                     # would keep the turn busy with no holder to show for it.
-                    left = lock_holders()
+                    table = process_table()
+                    left = lock_holders(table)
                     if left:
                         say("ticket %d: stopping pids %s, left by the command with run.lock open"
                             % (self.seq, " ".join(map(str, sorted(left)))))
-                        terminate(sorted(left), process_table())
+                        terminate(sorted(left), table)
                 except Exception as e:
                     say("ticket %d: stopping leftover processes failed: %s" % (self.seq, e))
                 try:
@@ -1002,7 +1052,8 @@ def cmd_status():
     if held_by_someone(RUN_LOCK):
         text = read_info(INFO)
         turn = parse_info(text).get("turn", 0)
-        age = " (turn %dm of %gm max)" % ((time.time() - turn) // 60, MAX_TURN / 60) if turn else ""
+        limit = parse_info(text).get("limit", MAX_TURN)
+        age = " (turn %dm of %gm max)" % ((time.time() - turn) // 60, limit / 60) if turn else ""
         print("running: %s%s" % (text or "a holder (starting)", age))
     else:
         print("running: none")
