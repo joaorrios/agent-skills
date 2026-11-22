@@ -82,7 +82,15 @@ This step is complete when the result is posted in the PR and every finding, eve
 
 Close the app under test, the tester sessions, the watchers, and anything keeping the display awake, also when a run failed or was interrupted. An app left open blocks the next run on the machine.
 
-This step is complete when nothing started for UAT is still running.
+Then give the machine its disk back. Each tester session, worktree, and build costs gigabytes, and a shared test machine runs out within days:
+
+- **Tester sessions:** archive each finished session and delete the workspace it created.
+- **Evidence:** once the media are attached to the PR, delete the folder that held them on the machine.
+- **Worktrees and clones** opened for the run or for a QA review: remove each worktree with `git worktree remove`, then delete any clone made for the run.
+
+Keep anything whose proof is not attached yet, anything another session is still using, and any commit or change not pushed.
+
+This step is complete when nothing started for UAT is still running, and nothing it created remains on the machine except what the line above keeps.
 
 ## Retesting reworked cases in a later run
 
