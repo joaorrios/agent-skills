@@ -29,6 +29,9 @@ once every gate is open:
     with UAT_LOCK_IGNORE_ELECTRON=1). While it waits on this gate, the head
     closes orphaned Electron test processes (no live launcher left, such as
     one left by a session that died or one the OS opened from a bundle path).
+A turn lasts at most UAT_LOCK_MAX_TURN minutes (default 90). Past that, the
+head of the queue stops the holder with SIGTERM, then SIGKILL, even when the
+session that holds it is alive but hung, so no turn blocks the queue forever.
 When a turn ends, by exit, stdin EOF, a stop signal or an error, it closes
 the Electron test processes that started during the turn from its own
 session or with no live launcher left, so the next turn never waits on an
@@ -71,6 +74,7 @@ LOCK_DIR = os.path.expanduser(os.environ.get("UAT_LOCK_DIR", "~/.local/state/uat
 MAX_LOAD = float(os.environ.get("UAT_LOCK_MAX_LOAD", "8"))
 POLL = float(os.environ.get("UAT_LOCK_POLL", "2"))
 KILL_GRACE = float(os.environ.get("UAT_LOCK_KILL_GRACE", "2"))
+MAX_TURN = float(os.environ.get("UAT_LOCK_MAX_TURN", "90")) * 60
 TICKETS = os.path.join(LOCK_DIR, "tickets")
 GUARD = os.path.join(LOCK_DIR, "queue.lock")
 COUNTER = os.path.join(LOCK_DIR, "next")
@@ -366,7 +370,7 @@ def close_electrons(procs, table, why):
 
 def parse_info(text):
     head = text.split(" since=", 1)[0]
-    return {k: int(v) for k, v in re.findall(r"\b(ticket|pid|owner|child)=(\d+)", head)}
+    return {k: int(v) for k, v in re.findall(r"\b(ticket|pid|owner|child|turn)=(\d+)", head)}
 
 
 def read_info(path):
@@ -555,12 +559,14 @@ class Turn(object):
         self.seq = self.name = self.tfd = self.run_fd = None
         self.before = self.session = None
         self.started = False
+        self.turn = 0
+        self.expired = None
         self.pid = os.getpid()
         self.owner = os.getppid() if mode == "hold" else 0
 
     def info(self, child=0):
-        return "ticket=%d pid=%d owner=%d child=%d mode=%s since=%s %s" % (
-            self.seq, self.pid, self.owner, child, self.mode, self.since, self.what)
+        return "ticket=%d pid=%d owner=%d child=%d turn=%d mode=%s since=%s %s" % (
+            self.seq, self.pid, self.owner, child, self.turn, self.mode, self.since, self.what)
 
     def write_info(self, child=0, test_hook=True):
         # Publish atomically: a nested call may read the file at any moment.
@@ -605,6 +611,7 @@ class Turn(object):
                     except OSError:
                         os.close(fd)
                 if self.run_fd is None:
+                    self.end_expired_turn()
                     if not ignore_electron:
                         self.close_holderless_orphans()
                     key = ("running",)
@@ -624,6 +631,7 @@ class Turn(object):
                 last_key, last_print = key, t
             self.pause()
         self.started = True
+        self.turn = int(time.time())
         self.before, table = self.electron_pids()
         if table is not None:
             # The session that owns this turn: the first launcher above this
@@ -671,6 +679,31 @@ class Turn(object):
                 left.append(p)
         if left:
             close_electrons(left, table, "started during ticket %d, which ended" % self.seq)
+
+    def end_expired_turn(self):
+        """Stop a holder whose turn outlived MAX_TURN, even if its session is alive.
+
+        SIGTERM lets the holder release and close its Electron; SIGKILL follows
+        when it still holds the turn after a few grace periods.
+        """
+        info = parse_info(read_info(INFO))
+        turn = info.get("turn", 0)
+        if not turn or time.time() - turn < MAX_TURN:
+            self.expired = None
+            return
+        targets = [info.get(k, 0) for k in ("pid", "child") if info.get(k, 0) > 0]
+        key = (info.get("ticket"), turn)
+        if self.expired is None or self.expired[0] != key:
+            say("ticket %d: turn of ticket %s exceeded %g minutes; stopping its holder %s"
+                % (self.seq, info.get("ticket", "?"), MAX_TURN / 60, " ".join(map(str, targets))))
+            for pid in targets:
+                send_signal(pid, signal.SIGTERM)
+            self.expired = (key, time.time())
+        elif time.time() - self.expired[1] >= KILL_GRACE * 3:
+            for pid in targets:
+                if alive(pid):
+                    say("holder pid %d ignored SIGTERM; sending SIGKILL" % pid)
+                    send_signal(pid, signal.SIGKILL)
 
     @staticmethod
     def close_holderless_orphans():
@@ -891,7 +924,10 @@ def cmd_status():
             p.pid, p.etime, "" if seq is None else ", its job waits in this queue (ticket %d)" % seq))
 
     if held_by_someone(RUN_LOCK):
-        print("running: %s" % (read_info(INFO) or "a holder (starting)"))
+        text = read_info(INFO)
+        turn = parse_info(text).get("turn", 0)
+        age = " (turn %dm of %gm max)" % ((time.time() - turn) // 60, MAX_TURN / 60) if turn else ""
+        print("running: %s%s" % (text or "a holder (starting)", age))
     else:
         print("running: none")
 

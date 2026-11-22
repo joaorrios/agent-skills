@@ -396,6 +396,35 @@ class UatLockTest(unittest.TestCase):
         self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
         self.assertIn("holding run.lock after its holder died", r.stderr)
 
+    def test_head_ends_a_turn_held_past_the_limit(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp,
+                   UAT_LOCK_MAX_TURN="0.02")
+        env.pop("UAT_LOCK_PS_FILE")
+        # A holder whose session hangs: it never closes stdin.
+        hung = self.start("hold", env=env)
+        self.wait_ready(hung)
+        app = self.spawn_orphan(electron)
+        self.addCleanup(lambda: os.kill(app, signal.SIGKILL) if not self.gone(app, 0) else None)
+        r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=30)
+        self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
+        self.assertIn("exceeded", r.stderr)
+        hung.wait(timeout=10)
+        self.assertTrue(self.gone(app))
+
+    def test_turn_within_the_limit_is_left_alone(self):
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
+                   UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
+        env.pop("UAT_LOCK_PS_FILE")
+        holder = self.start("hold", env=env)
+        self.wait_ready(holder)
+        waiter = self.start("run", "--", "true", env=env, stdin=subprocess.DEVNULL)
+        self.wait_err(waiter, "waiting for the running holder")
+        time.sleep(1)
+        self.assertIsNone(holder.poll())
+        self.release(holder)
+        self.assertEqual(self.finish(waiter)[0], 0)
+
     def test_ended_turn_spares_electron_another_session_started(self):
         kill_log = os.path.join(self.tmp, "kills")
         p = self.start("hold", env=dict(self.env, UAT_LOCK_KILL_LOG=kill_log))
