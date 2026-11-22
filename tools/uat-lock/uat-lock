@@ -93,6 +93,11 @@ WRAPPERS = {"sh", "bash", "zsh", "dash", "fish", "env", "node", "npm", "npx", "p
             "tee", "script", "nohup"}
 
 
+def limit_seconds():
+    """MAX_TURN as whole seconds for run.lock.info; 0 means no limit (inf or 0)."""
+    return int(MAX_TURN) if 0 < MAX_TURN < 10 ** 9 else 0
+
+
 def say(msg):
     # The caller that reads stderr may be gone; losing a log line must not
     # stop the release that follows it.
@@ -389,17 +394,8 @@ class LsofError(Exception):
     """lsof could not list the processes holding run.lock."""
 
 
-SCRIPT_NAME = os.path.basename(sys.argv[0]) or "uat-lock"
-
-
-def lock_holders(table):
-    """Pids with run.lock open, from lsof; LsofError when lsof fails.
-
-    Commands under `run` inherit the lock, so these are every process that
-    keeps the turn busy, whatever run.lock.info says. Other uat-lock calls
-    (status, a head trying the lock, a nested check) open it for an instant
-    and are left out.
-    """
+def lsof_pids():
+    """Pids with run.lock open, from lsof; LsofError when lsof fails."""
     try:
         r = subprocess.run(["lsof", "-t", "--", RUN_LOCK], stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE, universal_newlines=True, timeout=10)
@@ -409,16 +405,22 @@ def lock_holders(table):
     # other mounts on stderr; any other exit means it could not look.
     if r.returncode not in (0, 1):
         raise LsofError("exit %d: %s" % (r.returncode, r.stderr.strip()[:200]))
-    pids = {int(x) for x in r.stdout.split() if x.isdigit()} - {os.getpid()}
-    return {pid for pid in pids if not (pid in table and is_uat_lock(table[pid]))}
+    return {int(x) for x in r.stdout.split() if x.isdigit()} - {os.getpid()}
 
 
-def is_uat_lock(p):
-    """True for a uat-lock process: the script run directly or through python."""
-    if p.base == SCRIPT_NAME:
-        return True
-    first = p.args.split(None, 1)[0] if p.args.strip() else ""
-    return p.base.startswith("python") and os.path.basename(first) == SCRIPT_NAME
+def lock_holders():
+    """Pids that keep run.lock open, from two lsof reads; LsofError when lsof fails.
+
+    Commands under `run` inherit the lock, so these are every process that
+    keeps the turn busy, whatever run.lock.info says. Other uat-lock calls
+    (status, a head trying the lock) open it for an instant, so only pids
+    seen in both reads count.
+    """
+    first = lsof_pids()
+    if not first:
+        return first
+    time.sleep(0.5)
+    return first & lsof_pids()
 
 
 def terminate(pids, table):
@@ -477,6 +479,22 @@ def holder_pids():
     return {v for k, v in parse_info(read_info(INFO)).items() if k in ("pid", "owner", "child") and v > 0}
 
 
+def close_inherited_run_lock():
+    """Close run.lock fds inherited from a `run` command, so queueing never waits on itself."""
+    try:
+        target = os.stat(RUN_LOCK)
+    except OSError:
+        return
+    for name in os.listdir("/dev/fd"):
+        try:
+            fd = int(name)
+            st = os.fstat(fd)
+        except (ValueError, OSError):
+            continue
+        if fd > 2 and (st.st_dev, st.st_ino) == (target.st_dev, target.st_ino):
+            os.close(fd)
+
+
 def inherited_turn():
     """True when an ancestor verifiably holds run.lock for this process tree."""
     if os.environ.get("UAT_LOCK_HELD") != "1":
@@ -500,6 +518,7 @@ def inherited_turn():
         return True
     say("UAT_LOCK_HELD is set but pid %s does not hold run.lock as an ancestor; queueing"
         % (hp or "?"))
+    close_inherited_run_lock()
     os.environ.pop("UAT_LOCK_HELD", None)
     os.environ.pop("UAT_LOCK_HOLDER_PID", None)
     return False
@@ -641,7 +660,7 @@ class Turn(object):
     def info(self, child=0):
         return ("ticket=%d pid=%d owner=%d child=%d turn=%d limit=%d queued=%d session=%d "
                 "mode=%s since=%s %s" % (
-                    self.seq, self.pid, self.owner, child, self.turn, MAX_TURN, self.queued,
+                    self.seq, self.pid, self.owner, child, self.turn, limit_seconds(), self.queued,
                     self.session or 0, self.mode, self.since, self.what))
 
     def write_info(self, child=0, test_hook=True):
@@ -768,8 +787,8 @@ class Turn(object):
         info = parse_info(read_info(INFO))
         turn = info.get("turn", 0)
         # The holder's own limit rules its turn, so a holder that raised it keeps it.
-        limit = info.get("limit", MAX_TURN)
-        if not turn or time.time() - turn < limit:
+        limit = info["limit"] if "limit" in info else limit_seconds()
+        if not turn or not limit or time.time() - turn < limit:
             self.expired = None
             return
         key = (info.get("ticket"), turn)
@@ -794,7 +813,7 @@ class Turn(object):
             return
         self.expired = (key, time.time())
         try:
-            holders = lock_holders(table)
+            holders = lock_holders()
         except LsofError as e:
             say("ticket %d: cannot list the processes holding run.lock (%s); the expired "
                 "turn stays held until lsof works or its owner ends it" % (self.seq, e))
@@ -830,7 +849,7 @@ class Turn(object):
         if orphans:
             close_electrons(orphans, table, "orphaned, holding run.lock after its holder died")
         try:
-            left = lock_holders(table)
+            left = lock_holders()
         except LsofError as e:
             say("cannot list the processes holding run.lock after its holder died (%s)" % e)
             return
@@ -897,7 +916,7 @@ class Turn(object):
                     # Processes the command left behind inherited run.lock and
                     # would keep the turn busy with no holder to show for it.
                     table = process_table()
-                    left = lock_holders(table)
+                    left = lock_holders()
                     if left:
                         say("ticket %d: stopping pids %s, left by the command with run.lock open"
                             % (self.seq, " ".join(map(str, sorted(left)))))
@@ -1052,8 +1071,10 @@ def cmd_status():
     if held_by_someone(RUN_LOCK):
         text = read_info(INFO)
         turn = parse_info(text).get("turn", 0)
-        limit = parse_info(text).get("limit", MAX_TURN)
-        age = " (turn %dm of %gm max)" % ((time.time() - turn) // 60, limit / 60) if turn else ""
+        info = parse_info(text)
+        limit = info["limit"] if "limit" in info else limit_seconds()
+        age = (" (turn %dm of %s max)" % ((time.time() - turn) // 60,
+                                           "%gm" % (limit / 60) if limit else "no")) if turn else ""
         print("running: %s%s" % (text or "a holder (starting)", age))
     else:
         print("running: none")

@@ -492,6 +492,26 @@ class UatLockTest(unittest.TestCase):
         self.assertTrue(self.gone(orphan), err)
         self.assertFalse(self.gone(theirs, 0), "another session's Electron was closed")
 
+    def test_infinite_limit_means_no_limit(self):
+        r = self.run_cmd("run", "--", "echo", "OK", env=dict(self.env, UAT_LOCK_MAX_TURN="inf"))
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "OK"), r.stderr)
+
+    def test_nested_call_left_by_a_run_never_waits_on_itself(self):
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
+                   UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp, UAT_LOCK_KILL_GRACE="0.5")
+        env.pop("UAT_LOCK_PS_FILE")
+        # The command starts a nested hold in the background and exits at once,
+        # so the nested call cannot verify its holder and queues with the
+        # inherited run.lock fd.
+        fifo = os.path.join(self.tmp, "fifo")
+        os.mkfifo(fifo)
+        r = self.run_cmd("run", "--", "sh", "-c", '"$0" "$1" hold <> "$2" > /dev/null 2>&1 & sleep 0.2',
+                         sys.executable, SCRIPT, fifo, env=env)
+        self.addCleanup(subprocess.run, ["pkill", "-f", fifo])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=20)
+        self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
+
     def test_turn_within_the_limit_is_left_alone(self):
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
                    UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
