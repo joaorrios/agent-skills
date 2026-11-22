@@ -412,6 +412,38 @@ class UatLockTest(unittest.TestCase):
         hung.wait(timeout=10)
         self.assertTrue(self.gone(app))
 
+    def test_ended_run_stops_what_its_command_left_holding_run_lock(self):
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
+                   UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp, UAT_LOCK_KILL_GRACE="0.5")
+        env.pop("UAT_LOCK_PS_FILE")
+        pidfile = os.path.join(self.tmp, "pid")
+        r = self.run_cmd("run", "--", "sh", "-c", 'sleep 60 & echo $! > "$0"', pidfile, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(pidfile) as f:
+            left = int(f.read())
+        self.assertTrue(self.gone(left), r.stderr)
+        self.assertIn("left by the command with run.lock open", r.stderr)
+        r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=15)
+        self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
+
+    def test_expired_turn_of_a_stuck_holder_closes_its_live_session_app(self):
+        electron = self.fake_electron()
+        env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp,
+                   UAT_LOCK_MAX_TURN="0.02", UAT_LOCK_KILL_GRACE="0.3")
+        env.pop("UAT_LOCK_PS_FILE")
+        stuck = self.start("hold", env=env)
+        self.wait_ready(stuck)
+        # Launched by this test process, which stays alive like a hung session.
+        app = subprocess.Popen([electron, "60"])
+        self.procs.append(app)
+        stuck.send_signal(signal.SIGSTOP)
+        self.addCleanup(lambda: stuck.poll() is None and stuck.send_signal(signal.SIGCONT))
+        r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=40)
+        self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
+        self.assertIn("still held", r.stderr)
+        app.wait(timeout=10)
+        stuck.wait(timeout=10)
+
     def test_turn_within_the_limit_is_left_alone(self):
         env = dict(self.env, UAT_LOCK_IGNORE_RUNNER="1", UAT_LOCK_IGNORE_ELECTRON="1",
                    UAT_LOCK_TEST_ELECTRON_UNDER=self.tmp)
