@@ -383,6 +383,16 @@ class UatLockTest(unittest.TestCase):
         stuck = int(r.stdout)
         self.addCleanup(self.kill_quietly, stuck)
         time.sleep(0.5)
+        # Read argv[0] the way uat-lock does on each platform.
+        if sys.platform.startswith("linux"):
+            with open("/proc/%d/cmdline" % stuck, "rb") as f:
+                comm = f.read().split(b"\0", 1)[0].decode()
+        else:
+            comm = subprocess.run(["ps", "-o", "comm=", "-p", str(stuck)], capture_output=True,
+                                  universal_newlines=True).stdout.strip()
+        if os.path.basename(comm) != "electron":
+            # macOS's /usr/bin/python3 re-executes itself as Python.app, dropping exec -a.
+            self.skipTest("this interpreter does not keep argv[0] (ps shows %r)" % comm)
         self.release(p)
         self.wait_err(p, "closing Electron pid %d" % stuck)
         p.send_signal(signal.SIGTERM)
@@ -509,6 +519,18 @@ class UatLockTest(unittest.TestCase):
                          sys.executable, SCRIPT, fifo, env=env)
         self.addCleanup(subprocess.run, ["pkill", "-f", fifo])
         self.assertEqual(r.returncode, 0, r.stderr)
+        # Depending on timing, the release stops the nested hold or it takes a
+        # turn of its own; either way the lock never stays held with no holder
+        # shown, which is what a nested call waiting on itself looks like.
+        deadline = time.time() + 15
+        while True:
+            out = self.run_cmd("status", env=env).stdout
+            running = [line for line in out.splitlines() if line.startswith("running:")][0]
+            if "a holder (starting)" not in running or time.time() > deadline:
+                break
+            time.sleep(0.2)
+        self.assertNotIn("a holder (starting)", running, out)
+        subprocess.run(["pkill", "-f", fifo])
         r = self.run_cmd("run", "--", "echo", "ADMITTED", env=env, timeout=20)
         self.assertEqual(r.stdout.strip(), "ADMITTED", r.stderr)
 
