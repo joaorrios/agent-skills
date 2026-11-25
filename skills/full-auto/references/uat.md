@@ -1,6 +1,6 @@
 # UAT without the user
 
-How to run the UAT that the full-auto product validation gate requires. You are the **orchestrator**: you built the change, write the script, run the two testers, and classify what they report. The testers use the running app as a user would; neither reads code to decide whether the app works.
+How to run the UAT that the full-auto product validation gate requires. You are the **orchestrator**: you built the change, write the script, run the two testers, classify what they report, and fix its objective failures. The testers use the running app as a user would; neither reads code to decide whether the app works.
 
 | Tester | Knows | Does |
 |---|---|---|
@@ -49,10 +49,10 @@ This step is complete when both testers have written their reports, or a tester'
 
 Testers often report intended behavior as a bug. Before anything reaches the user, read the code, the docs, and both reports, and put each finding in one class:
 
-- **Real bug:** the app breaks a promise.
+- **Objective failure:** the app plainly breaks, with no judgment of taste or intent needed to see it: it crashes, shows an unhandled runtime or console error, a promised output or write fails or holds wrong data, or a promised action plainly does not work.
+- **Decision:** a subjective UX or product call: visual polish, whether something is visible or has enough contrast, whether behavior feels natural or intuitive, or behavior that is or may be intended, including a choice nobody has made yet. A finding that could fit either this class or the one above is a decision.
 - **Tool limit:** the input tool could not perform or observe the action.
 - **Script error:** your script led the tester astray.
-- **Decision:** the behavior is intended or a product choice, possibly one nobody has made yet.
 
 Make each finding judgeable:
 
@@ -61,11 +61,23 @@ Make each finding judgeable:
 - **A native baseline** when the failure could be platform behavior: the same action in a minimal native app, at several delays, with numbers. Use real input events for it; scripted menu clicks skip what the OS does between click and action.
 - **Corroboration:** a finding both testers reached independently is the strongest evidence; one only the script tester hit may be a script error.
 
-Classification orders the findings; it does not settle them. What happens to each finding is set by "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md).
+The class sets what happens to each finding, as "Findings" under "Product validation gate" in [`../SKILL.md`](../SKILL.md) says: objective failures go to the fix loop, every other finding to the user.
 
 This step is complete when every finding has a class, counts, and the evidence behind it.
 
-## 5. Report to the user
+## 5. Fix objective failures
+
+Fix the objective failures in a closed loop of at most 3 rounds. Each round:
+
+1. **Fix** each failure still open with the smallest change that works, then prove and review the round's diff as steps 2 and 3 of [`../SKILL.md`](../SKILL.md) say.
+2. **Push** to the PR branch, after the ending's guard against merging on its own, and tend the checks the push starts as step 5 of `../SKILL.md` does.
+3. **Retest** the failed cases on the new head (see "Retesting").
+
+A failure that passes its retest is resolved; one still reproducing goes into the next round. A failure whose only fix you can find changes what the PR promises is a decision: take it out of the loop. After round 3, each failure still reproducing goes to the user as an open finding, with its evidence and what each round tried. For the report, keep each resolved failure's symptom, fix commit, and retest counts.
+
+This step is complete when every objective failure has passed its retest on the latest head, or has gone to the user.
+
+## 6. Report to the user
 
 Deliver the UAT result as "Result" under "Product validation gate" in [`../SKILL.md`](../SKILL.md) says. The report covers:
 
@@ -73,12 +85,13 @@ Deliver the UAT result as "Result" under "Product validation gate" in [`../SKILL
 - **Per-item tables:** verdict, the physical action, what was observed, and the evidence files.
 - **Ground-truth evidence:** when the promise is about what the app writes (a file, a record, a request), that output compared with its state before each step; screenshots alone do not prove it.
 - **Each finding** with its class, counts, control case, and evidence, explained from zero, step by step, in plain language: what the user does, what happens, what was expected.
+- **The fix loop:** each objective failure it resolved, in one line each: what failed, the fix commit, and the retest counts.
 - **The help log** from the promise tester: each help page consulted and whether it solved the problem.
 - **The human checklist** of what only the user can check, when the change has one.
 
-This step is complete when the result is posted in the PR and every finding, every BLOCKED or INCONCLUSIVE item, and every human-checklist item is in the questions for the user.
+This step is complete when the result is posted in the PR and every finding left for the user, every BLOCKED or INCONCLUSIVE item, and every human-checklist item is in the questions for the user.
 
-## 6. Clean up
+## 7. Clean up
 
 Close the app under test, the tester sessions, the watchers, and anything keeping the display awake, also when a run failed or was interrupted. An app left open blocks the next run on the machine.
 
@@ -92,6 +105,6 @@ Keep anything whose proof is not attached yet, anything another session is still
 
 This step is complete when nothing started for UAT is still running, and nothing it created remains on the machine except what the line above keeps.
 
-## Retesting reworked cases in a later run
+## Retesting
 
-Whether a later run retests is set by "Later runs" under "Product validation gate" in [`../SKILL.md`](../SKILL.md). A retest covers the failed and fixed cases on the head the batch closes out with, run by the same kind of tester, with each timing-sensitive case repeated at least five times. It replaces a full two-tester run unless the fix changes what the user sees or does beyond those cases. Keep any automated test that comes out of a finding at the lowest layer that proves it.
+The fix loop retests after each round; whether a later run retests reworked cases is set by "Later runs" under "Product validation gate" in [`../SKILL.md`](../SKILL.md). A retest covers the failed and fixed cases on the new head, run by the same kind of tester, with each timing-sensitive case repeated at least five times. It replaces a full two-tester run unless the fix changes what the user sees or does beyond those cases. Keep any automated test that comes out of a finding at the lowest layer that proves it.

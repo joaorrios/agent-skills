@@ -31,6 +31,7 @@ For each step or promise item:
 - **Action:** the physical action you took.
 - **Observed:** what happened.
 - **Evidence:** numbered screenshots taken at the decisive moments, and the outputs your brief names.
+- **Errors:** each crash, error dialog, and console error you saw, with its text verbatim.
 
 For a timing-sensitive step, act within the delay your brief defines, repeat it as many times as it says, and give counts.
 
