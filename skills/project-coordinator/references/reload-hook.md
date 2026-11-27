@@ -24,8 +24,9 @@ In the project's `.claude/settings.local.json`:
 ```
 
 Output past 10,000 characters is replaced by a 2,000-character preview
-and a file path, which is why the script sends only the state when the
-two together are too long.
+and a file path. So the script prints the state only under 9,000
+characters, and the protocol only when both fit in 9,500; otherwise it
+names the files to read.
 
 ## Codex
 

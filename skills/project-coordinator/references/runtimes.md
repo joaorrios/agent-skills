@@ -9,6 +9,15 @@ reports, a scheduled check. A worker or check that dies with the
 coordinator's session is **session-bound**: record it as such, and on
 takeover reconcile it from git instead of waiting for its notice.
 
+Remove a worker's worktree (`git worktree remove`) only when it is clean
+and its commits are merged or pushed to a branch you keep.
+
+## Is the old coordinator alive
+
+- Paseo: `get_agent_status` on the state's "Paseo agent" id.
+- Claude Code: the agent view, or the cross-session messaging list.
+- Codex: you cannot tell; ask the user.
+
 ## Paseo
 
 Runs agents of any provider and keeps them, and its heartbeats, alive
@@ -21,9 +30,13 @@ across coordinator sessions; the user follows the whole team in the app.
 - Completion notices, follow-ups to the same agent, archiving, and
   heartbeats or schedules for checks all exist as tools; reconcile from
   its agent, permission, and schedule lists.
-- Paseo sets `$PASEO_AGENT_ID` inside its agents (Paseo CLI docs). Record it on the
-  state's "Paseo agent" line so anything that reads the state, such as a
-  Paseo plugin, can tell the coordinator from its workers.
+- `get_agent_status` and `get_agent_activity` give a silent worker's
+  state and last activity.
+- Close a worker with `archive_agent`. Archive its workspace once the
+  worktree is clean and every commit is on a remote or merged into a
+  branch you keep, since `archive_workspace` can remove the worktree with
+  it. Projects stay: `paseo project delete` drops their archived agents
+  from the history.
 
 ## Claude Code
 
@@ -64,12 +77,3 @@ Docs: <https://code.claude.com/docs/en/sub-agents>,
 Docs: <https://learn.chatgpt.com/docs/agent-configuration/subagents>,
 <https://learn.chatgpt.com/docs/automations>,
 <https://learn.chatgpt.com/docs/cloud>.
-
-## Cursor
-
-Use Cursor Projects instead of this skill. A Project is a built-in
-coordinator: it keeps context across chats, delegates to agents in
-parallel, runs on a schedule or on events, and keeps running in the cloud
-with the laptop closed (beta since 2026-09-10, paid plans).
-
-Docs: <https://cursor.com/docs/agent/projects>.

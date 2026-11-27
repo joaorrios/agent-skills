@@ -37,8 +37,9 @@ fi                                               # otherwise: nothing to commit
 - Commit every file in the state's folder, not only `state.md` and
   `archive.md`.
 - Never push the state's repository unless the user asks.
-- Moving an existing state is the user's call: copy the folder, run
-  `git rm -r --cached .agents/coordinator` in the project and commit that
-  alone, link the new place, and ignore the link in `.git/info/exclude` as
-  `/.agents/coordinator` (no trailing slash: git does not treat a link as a
-  folder).
+- Moving an existing state is the user's call: copy the folder to its new
+  place and compare the two; run `git rm -r --cached .agents/coordinator`
+  in the project and commit that alone; delete the local folder; create
+  the link (`ln -s <new> .agents/coordinator`); add `/.agents/coordinator`
+  to `.git/info/exclude` (no trailing slash: git does not treat a link as
+  a folder); confirm with `ls -l .agents/` that it is a link.
