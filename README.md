@@ -9,6 +9,7 @@ Portable skills for coding agents.
 - **babysit-pr** — monitors a pull request through CI and review bots, fixing real findings until it is ready to merge.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
+- **cold-read**: has a fresh reader with none of the author's context read a draft before it goes out, settles every guessed fact against real sources, and revises the text so it stands on its own.
 - **council** — brings in delegates from different model providers to review or give feedback, scoring each review round until they are satisfied.
 - **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
 - **full-auto** — takes a change end to end while the user is away, ending with the PR merged ("full send") or ready for the user to merge ("full stop").
@@ -51,6 +52,10 @@ skills/
     scripts/
   codex-image/
     SKILL.md
+  cold-read/
+    SKILL.md
+    agents/
+      reader.md
   council/
     SKILL.md
     LICENSE
@@ -108,6 +113,8 @@ The two technical-review skills dispatch a fresh isolated reviewer using their b
 `unhobble` requires access to read and edit the target material and an independent reviewer.
 
 `claude-instance-topology` targets macOS with Claude Desktop and/or the Claude Code CLI. Its scripts need Python 3; the icon script also needs Pillow, and the menu bar plugin needs SwiftBar. It changes only where configuration and history live: every login goes through Anthropic's own sign-in flows in the unmodified apps, and it never reads, copies, or alters the credentials the apps store, in line with Anthropic's [terms for credential use](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use).
+
+`cold-read` dispatches a fresh reader using its bundled `agents/reader.md` and only the draft text. It works in any runtime that can spawn a fresh subagent or separate agent, and works best when the reader has no access to workspace files or prior conversation.
 
 ## Tools
 
