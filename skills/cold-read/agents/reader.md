@@ -25,7 +25,7 @@ List every finding in reading order using this exact structure:
 - **Literal reading:** <what a reader without context understands>
 - **Why unclear:** <what forces guessing or causes a misreading>
 - **Rewrite:** <clear rewrite in the text's language>
-- **Guessed fact:** `[GUESS]` <fact assumed by the rewrite> — or `None.` if every fact in the rewrite is already stated in the text.
+- **Guessed fact:** `[GUESS]` <fact assumed by the rewrite>, or `None.` if every fact in the rewrite is already stated in the text.
 
 Format examples:
 

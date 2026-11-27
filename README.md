@@ -9,7 +9,7 @@ Portable skills for coding agents.
 - **babysit-pr** — monitors a pull request through CI and review bots, fixing real findings until it is ready to merge.
 - **claude-instance-topology** — maps and safely changes how Claude Desktop and CLI instances on macOS share accounts, configuration, and history, including switching between accounts.
 - **codex-image** — creates and edits images through the official Codex plugin, on request or autonomously as part of ongoing work, with Claude-owned art direction, acceptance, and integration.
-- **cold-read** — has a fresh reader with none of the author's context read a draft before it goes out, settles every guessed fact against real sources, and revises the text so it stands on its own.
+- **cold-read**: has a fresh reader with none of the author's context read a draft before it goes out, settles every guessed fact against real sources, and revises the text so it stands on its own.
 - **council** — brings in delegates from different model providers to review or give feedback, scoring each review round until they are satisfied.
 - **dev-handoff**: hands a design or prototype to developers, choosing between an HTML handoff page built from Figma, real screens captured from a running build into annotated Figma, or both, with every unsettled item in a drafts table.
 - **full-auto** — takes a change end to end while the user is away, ending with the PR merged ("full send") or ready for the user to merge ("full stop").
