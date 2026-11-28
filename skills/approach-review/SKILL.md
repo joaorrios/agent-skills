@@ -36,7 +36,7 @@ Resolve missing and contradicted entries with `change` or by asking the user; as
 
 Consume every substantive finding individually, whatever severity label the reviewer gave it.
 
-- **change** — revise the approach to address the finding.
+- **change** — revise the approach to address the finding, with the smallest change: remove or narrow before adding a mechanism, stage, or option.
 - **disagree** — keep the approach and give a specific technical reason supported by evidence.
 - **track** — only for a rare case whose fix is not easy. Follow the repository's policy for rare cases; without one, open an issue stating the scenario, what the user sees, and why it already behaves that way, or ask the user. Point the approach to where it is tracked.
 - **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, settle an open question, or needs a product, scope, or priority choice the author does not own. Only the user can override a user decision. Ask in chat, wait for the answer, then apply it: `change` the approach, or record the answer as the disposition when the user keeps it as is. An open question, TODO, or "not yet approved" note written into an artifact leaves the finding unresolved.
@@ -47,7 +47,7 @@ A missing requirement is not a reason to dismiss a technical defect. If a findin
 
 ## Re-check
 
-Before sending the approach back, reread it whole and re-check every earlier finding against it.
+Before sending the approach back, reread it whole and re-check every earlier finding against it. If review grew the approach, cut first. Agree with a finding because it is right, not to end the loop, and keep the scope to what the work asked for.
 
 Send it back only when a `change` resolved a blocking finding, and at most once: to the same reviewer session, at the same reasoning effort, covering only what changed. When that pass still reports a blocking finding, stop revising and bring the open findings to whoever owns the decision: the user, or whoever assigned you the approach.
 

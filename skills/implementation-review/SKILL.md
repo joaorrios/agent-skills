@@ -25,7 +25,7 @@ The reviewer owns investigation and may inspect the surrounding system as needed
 
 Consume every substantive finding individually, whatever severity label the reviewer gave it.
 
-- **fix** — change the implementation to address the finding.
+- **fix** — change the implementation to address the finding, with the smallest fix: delete or narrow before adding a lock, cache, helper, or option.
 - **disagree** — leave it unchanged and give a specific technical reason supported by evidence.
 - **track** — only for a rare case whose fix is not easy. Follow the repository's policy for rare cases; without one, open an issue stating the scenario, what the user sees, and why it already behaves that way, or ask the user. Point the change to where it is tracked.
 - **ask the user** — required when resolving the finding would revisit or contradict a user decision or request, recorded in the spec when one exists or stated in conversation, or needs a product, scope, or priority choice the implementer does not own. Only the user can override a user decision. Ask in chat, wait for the answer, then apply it: `fix` the implementation, or record the answer as the disposition when the user keeps it as is. A TODO, code comment, or "not yet approved" note leaves the finding unresolved.
@@ -36,7 +36,7 @@ A missing requirement is not a reason to dismiss a technical defect. Written int
 
 ## Re-check
 
-Before sending the implementation back, reread the whole change and re-check every earlier finding against it.
+Before sending the implementation back, reread the whole change and re-check every earlier finding against it. If review grew the change, cut first. Agree with a finding because it is right, not to end the loop, and keep the scope to what the work asked for.
 
 Send it back only when a `fix` resolved a blocking finding, and at most once: to the same reviewer session, at the same reasoning effort, covering only what changed. When that pass still reports a blocking finding, stop fixing and bring the open findings to whoever owns the decision: the user, or whoever assigned you the work.
 
