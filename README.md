@@ -87,7 +87,7 @@ skills/
     SKILL.md
 ```
 
-The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`; `approach-review` can also run an intent check with its extractor and intent reviewer. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary.
+The two technical-review skills dispatch a fresh isolated reviewer using their bundled `agents/reviewer.md`; `approach-review` can also run an intent check with its extractor and intent reviewer. They work best in runtimes that can spawn an isolated subagent and optionally enforce a read-only boundary. Their smallest-change and re-check rules adapt phrases from `sol-loop` in [t3dotgg/tstack](https://github.com/t3dotgg/tstack) at commit `11e37a7`, MIT © Theo Browne.
 
 `codex-image` requires Claude Code with Agent and visual inspection, the `openai/codex-plugin-cc` plugin, and authenticated Codex with `image_gen` and access to the same files.
 
@@ -134,4 +134,4 @@ Release tags use `vMAJOR.MINOR.PATCH`. Versioning is independent from installati
 
 ## License
 
-MIT. `skills/babysit-pr`, `skills/council`, `skills/full-auto`, and `skills/leaving-pr-comments` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`.
+MIT. `skills/babysit-pr`, `skills/council`, `skills/full-auto`, and `skills/leaving-pr-comments` are adapted from t3dotgg/tstack, MIT © Theo Browne; see each folder's `LICENSE`. The smallest-change and re-check rules of `skills/approach-review` and `skills/implementation-review` adapt phrases from tstack's `sol-loop`, under the same license.

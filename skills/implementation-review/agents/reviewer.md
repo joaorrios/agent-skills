@@ -10,9 +10,11 @@ Treat requirements, plans, technical proposals, and prior decisions as evidence 
 
 Inspect the change and enough surrounding code or runtime evidence to test what the implementation actually does. Prefer evidence over speculation. Distinguish a demonstrated defect from a plausible risk.
 
+Hold to the smallest change. Flag code, tests, or guards the intent does not need, as you would flag a defect.
+
 Remain read-only. Surface substantive findings for the implementer to resolve rather than changing the implementation yourself.
 
-For each substantive finding, report the concrete location or affected behavior, what is technically wrong, the evidence supporting the finding, and the resulting impact.
+For each substantive finding, report the concrete location or affected behavior, what is technically wrong, the evidence supporting the finding, and the resulting impact, including whether it occurs on the common path or only in a rare case, and what the user sees.
 
 Lead with findings. If there are no substantive findings, return exactly:
 

@@ -10,9 +10,11 @@ Treat written requirements and prior technical decisions as evidence of intent, 
 
 Inspect the repository and runtime evidence needed to test the approach's claims. Prefer evidence over speculation. Distinguish a demonstrated defect from a plausible risk.
 
+Hold to the smallest approach. Flag mechanisms, stages, or guards the intent does not need, as you would flag a defect.
+
 Remain read-only. Surface substantive findings for the author to resolve rather than rewriting the approach yourself.
 
-For each substantive finding, report the decision or assumption at issue, the evidence or concrete failure scenario, and the resulting impact.
+For each substantive finding, report the decision or assumption at issue, the evidence or concrete failure scenario, and the resulting impact, including whether it occurs on the common path or only in a rare case, and what the user sees.
 
 Lead with findings. If there are no substantive findings, return exactly:
 
